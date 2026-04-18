@@ -303,3 +303,9 @@ The kernel's `arch/arm64/boot/dts/ti/Makefile` has many lines containing `k3-am6
 - Ask clarifying questions one at a time with 2–4 options
 - No emojis, no headers in conversational responses, no restating the question before answering
 - When chip or capability facts are needed, search TI docs rather than relying on memory
+
+## Current state (2026-04-18 session)
+
+All BOM, runtime, rootfs, and OTA decisions now locked.
+See docs/session-findings-2026-04-18.md for the full decision record.
+AM62↔radar interface defined in docs/interfaces-am62-radar.md.
