@@ -1,3 +1,4 @@
+
 # TI AM62x Firmware Project — SK-AM62-LP
 
 ## Hardware target
@@ -6,6 +7,9 @@
 - **Memory:** LPDDR4
 - **Debug console:** onboard FT4232 USB-UART bridge via micro-USB (J17 on board)
 - **JTAG:** onboard XDS110 via separate micro-USB (J15)
+
+## Reference docs
+- `workspace/docs/BOOT_DAY_RUNBOOK.md` — First power-on procedure for SK-AM62-LP. Covers SD card prep, serial console setup, expected output at each boot stage, and troubleshooting.
 
 ## Host build environment
 - **Host OS:** macOS (Apple Silicon)
