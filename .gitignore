@@ -1,0 +1,43 @@
+# TI SDK — 14 GB, re-download from TI, never version it
+workspace/sdk/ti-processor-sdk-linux-am62xx-evm/
+workspace/sdk/*.bin
+workspace/sdk/*.Install.bin
+workspace/sdk/*.wic.xz
+workspace/sdk/*.img.xz
+
+# Build outputs
+**/build/
+**/u-boot-build/
+**/*.o
+**/*.a
+**/*.ko
+**/*.cmd
+**/.tmp_versions/
+**/modules.order
+**/Module.symvers
+
+# Kernel/U-Boot artifacts
+**/arch/*/boot/Image
+**/arch/*/boot/Image.gz
+**/arch/*/boot/zImage
+**/arch/*/boot/dts/**/*.dtb
+**/vmlinux
+**/System.map
+**/u-boot/u-boot
+**/u-boot/u-boot.bin
+**/u-boot/u-boot.img
+**/spl/
+
+# Logs
+*.log
+
+# macOS clutter
+.DS_Store
+
+# Editor directories
+.vscode/
+.idea/
+*.iml
+*.swp
+*.bak
+*~
