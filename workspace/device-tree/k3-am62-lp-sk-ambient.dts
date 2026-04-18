@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree for Ambient Intel AM62x-LP board.
+ *
+ * Derived from TI SK-AM62-LP evaluation board DTS. The ambient board is
+ * electrically identical to the SK-AM62-LP at this stage; this file exists
+ * to carry ambient-specific peripherals (sensor nodes, custom pinmux, etc.)
+ * as they are added, and to give the running kernel a distinct
+ * compatible/model string so userspace can identify the hardware.
+ *
+ * Keep this file thin: #include the stock SK-LP DTS and override/add only
+ * what differs. Do not duplicate the upstream SoC/board definitions.
+ *
+ * Build: see workspace/device-tree/README.md for the copy-in-and-build flow.
+ */
+
+/dts-v1/;
+
+#include "k3-am62-lp-sk.dts"
+
+/ {
+	compatible = "ambientintel,am62x-lp", "ti,am62-lp-sk", "ti,am625";
+	model = "Ambient Intel AM62x-LP";
+};

@@ -5,26 +5,28 @@
 # kernel Makefile builds it, and invokes the kernel's dtbs target.
 #
 # Expected environment:
-#   KERNEL_SRC   Path to the kernel source tree (TI SDK kernel).
-#   ARCH         arm64 (default).
-#   CROSS_COMPILE aarch64-linux-gnu- (default).
+#   KERNEL_SRC    Path to the kernel source tree (TI SDK kernel).
+#   ARCH          arm64 (default).
+#   CROSS_COMPILE aarch64-oe-linux- (default; matches TI Arago toolchain).
 #
 # Typical usage from workspace/device-tree/:
-#   make KERNEL_SRC=../../ti-processor-sdk-linux-am62x/board-support/linux
-#
-# The install step is idempotent: running it repeatedly is safe.
+#   source /workspace/sdk/ti-processor-sdk-linux-am62xx-evm/kernel-env.sh
+#   make build KERNEL_SRC=/path/to/ti-linux-kernel
 
-DTS_NAME      := k3-am625-sk-lp-ambient
+DTS_NAME      := k3-am62-lp-sk-ambient
 DTS_FILE      := $(DTS_NAME).dts
 DTB_FILE      := $(DTS_NAME).dtb
 
 KERNEL_SRC    ?=
 ARCH          ?= arm64
-CROSS_COMPILE ?= aarch64-linux-gnu-
+CROSS_COMPILE ?= aarch64-oe-linux-
 
 DT_SUBDIR     := arch/arm64/boot/dts/ti
 KERNEL_DT_DIR := $(KERNEL_SRC)/$(DT_SUBDIR)
 KERNEL_MK     := $(KERNEL_DT_DIR)/Makefile
+
+ANCHOR_LINE   := dtb-$$(CONFIG_ARCH_K3) += k3-am62-lp-sk.dtb
+NEW_LINE      := dtb-$$(CONFIG_ARCH_K3) += $(DTB_FILE)
 
 .PHONY: all install build clean check help
 
@@ -46,18 +48,24 @@ check:
 	@if [ ! -f "$(KERNEL_MK)" ]; then \
 		echo "ERROR: $(KERNEL_MK) not found. Is KERNEL_SRC correct?"; exit 1; \
 	fi
+	@if ! grep -Fxq '$(ANCHOR_LINE)' $(KERNEL_MK); then \
+		echo "ERROR: anchor line not found in $(KERNEL_MK):"; \
+		echo "       $(ANCHOR_LINE)"; \
+		echo "       Kernel Makefile format may have changed; update ANCHOR_LINE."; \
+		exit 1; \
+	fi
 
 install: check
 	@echo ">> Copying $(DTS_FILE) -> $(KERNEL_DT_DIR)/"
 	cp -f $(DTS_FILE) $(KERNEL_DT_DIR)/$(DTS_FILE)
-	@if grep -q "$(DTB_FILE)" $(KERNEL_MK); then \
+	@if grep -Fxq '$(NEW_LINE)' $(KERNEL_MK); then \
 		echo ">> $(DTB_FILE) already registered in kernel Makefile."; \
 	else \
 		echo ">> Registering $(DTB_FILE) in kernel Makefile."; \
-		# Append next to the stock sk-lp entry so related DTBs stay grouped. \
-		sed -i.ambient-bak \
-		    '/k3-am625-sk-lp\.dtb/a dtb-$$(CONFIG_ARCH_K3) += $(DTB_FILE)' \
-		    $(KERNEL_MK); \
+		awk -v anchor='$(ANCHOR_LINE)' -v newline='$(NEW_LINE)' \
+		    '{ print } $$0 == anchor { print newline }' \
+		    $(KERNEL_MK) > $(KERNEL_MK).new && \
+		mv $(KERNEL_MK).new $(KERNEL_MK); \
 	fi
 
 build: install
@@ -68,10 +76,6 @@ build: install
 clean: check
 	@echo ">> Removing $(DTS_FILE) from kernel tree"
 	rm -f $(KERNEL_DT_DIR)/$(DTS_FILE)
-	@if [ -f $(KERNEL_MK).ambient-bak ]; then \
-		echo ">> Restoring kernel Makefile from .ambient-bak"; \
-		mv $(KERNEL_MK).ambient-bak $(KERNEL_MK); \
-	else \
-		echo ">> No .ambient-bak found; leaving kernel Makefile as-is."; \
-		echo "   If $(DTB_FILE) is still listed, remove it manually."; \
-	fi
+	@echo ">> Removing any $(DTB_FILE) entries from kernel Makefile"
+	@grep -vF '$(NEW_LINE)' $(KERNEL_MK) > $(KERNEL_MK).new && \
+		mv $(KERNEL_MK).new $(KERNEL_MK)
