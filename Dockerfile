@@ -12,6 +12,13 @@ RUN apt-get update && \
         python3 \
         python3-pip \
         python3-pexpect \
+        python3-dev \
+        python3-setuptools \
+        python3-yaml \
+        python3-pyelftools \
+        python3-jsonschema \
+        python3-lxml \
+        swig \
         chrpath \
         diffstat \
         gawk \
@@ -24,6 +31,13 @@ RUN apt-get update && \
         flex \
         libssl-dev \
         libncurses-dev \
+        libgnutls28-dev \
+        libftdi-dev \
+        libusb-1.0-0-dev \
+        libcap-dev \
+        libpython3-dev \
+        uuid-dev \
+        pkg-config \
         cpio \
         zstd \
         lz4 \
@@ -38,6 +52,9 @@ RUN apt-get update && \
         xterm \
         zip && \
     rm -rf /var/lib/apt/lists/*
+
+# yamllint is not packaged for Ubuntu 22.04 — pip required
+RUN pip3 install yamllint
 
 RUN locale-gen en_US.UTF-8
 
