@@ -68,15 +68,41 @@ Open separate shells for kernel builds vs userspace builds.
 - Yocto full build: not yet attempted; estimate 12–20+ hours; will likely use cloud VM
 
 ## Current status
-- [x] Docker Ubuntu 22.04 x86_64 container set up
+- [x] Docker Ubuntu 22.04 x86_64 container set up (QEMU emulation, Rosetta OFF)
 - [x] TI Processor SDK Linux 11.02.08.02 installed
 - [x] Cross-toolchain verified (aarch64-oe-linux-gcc 13.4)
 - [x] Kernel + DTB build succeeded (Image=22MB, k3-am62-lp-sk.dtb=65KB)
-- [ ] Hardware received (ordering in progress)
-- [ ] Prebuilt SD card image flashed and booted
-- [ ] Custom kernel flashed and booted
-- [ ] U-Boot custom build
-- [ ] Full Yocto build
+- [x] U-Boot compiled (tiboot3.bin, tispl.bin, u-boot.img)
+- [x] Git repo pushed to ambientintel/ambientfirmware
+- [ ] Hardware received (SK-AM62-LP on order)
+- [ ] First boot with prebuilt SD card image
+- [ ] First boot with custom kernel
+- [ ] TFTP/NFS dev loop set up
+- [ ] Define project goals
+
+## Lessons learned
+
+### Rosetta bss_size bug — disable Rosetta in Docker Desktop
+Docker Desktop's Rosetta x86_64 emulation has a bug where `.bss` section sizes are miscalculated during linking, producing silently corrupt binaries (U-Boot SPL was the symptom). Fix: open Docker Desktop → Settings → General → uncheck "Use Rosetta for x86_64/amd64 emulation on Apple Silicon". Use QEMU emulation only.
+
+### `linux-devkit/environment-setup` pollutes CPATH for kernel/U-Boot builds
+Sourcing `linux-devkit/environment-setup` sets `CC`, `CFLAGS`, and `CPATH` to aarch64 sysroot paths. This breaks `HOSTCC` (the host compiler used for `scripts/`, `tools/`, etc.) and causes confusing build failures. Never source it for kernel or U-Boot builds. Use `workspace/sdk/kernel-env.sh` instead — it sets only `PATH`, `ARCH`, and `CROSS_COMPILE`.
+
+### U-Boot 2025.01 requires extra host packages
+The TI U-Boot 2025.01 tree needs several host tools not present in a minimal Ubuntu 22.04 container:
+```
+apt-get install -y swig libgnutls28-dev python3-yaml yamllint \
+    libssl-dev python3-dev python3-setuptools
+```
+Symptom without these: cryptic Python import errors or missing `gnutls` linker failures mid-build.
+
+### SDK Makefile defaults to `MAKE_JOBS=1` — always override
+The top-level SDK `Makefile` / `Rules.make` sets `MAKE_JOBS ?= 1`. Under QEMU this makes an already slow build ~8× slower than necessary. Always pass an explicit job count:
+```bash
+make MAKE_JOBS=$(nproc) ...
+# or equivalently for direct kernel/U-Boot invocations:
+make -j$(nproc) ...
+```
 
 ## Project goal
 _TBD — to be filled in as direction solidifies._
