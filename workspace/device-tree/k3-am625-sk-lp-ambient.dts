@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree for Ambient Intel AM62x-LP board.
+ *
+ * Derived from TI SK-AM62-LP evaluation board DTS. The ambient board is
+ * electrically identical to the SK-AM62-LP at this stage; this file exists
+ * to carry ambient-specific peripherals (sensor nodes, custom pinmux, etc.)
+ * as they are added, and to give the running kernel a distinct
+ * compatible/model string so userspace can identify the hardware.
+ *
+ * Keep this file thin: #include the stock SK-LP DTS and override/add only
+ * what differs. Do not duplicate the upstream SoC/board definitions.
+ *
+ * Build: see workspace/device-tree/README.md for the copy-in-and-build flow.
+ */
+
+/dts-v1/;
+
+#include "k3-am625-sk-lp.dts"
+
+/ {
+	compatible = "ambientintel,am62x-lp", "ti,am625-sk-lp", "ti,am625";
+	model = "Ambient Intel AM62x-LP";
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * Ambient-specific peripherals go below this line.
+ * ---------------------------------------------------------------------------
+ *
+ * Conventions:
+ *   - Group additions by bus (i2c, spi, gpio, etc.), each in its own
+ *     &node-reference block.
+ *   - Reference pinmux groups by label; define new pinmux groups under
+ *     &main_pmx0 / &mcu_pmx0 as needed.
+ *   - Keep sensor nodes minimal at first (compatible + reg + interrupts);
+ *     vendor-specific tuning properties can come later.
+ *
+ * Placeholder examples (commented out until hardware is known):
+ *
+ * &main_i2c1 {
+ *     status = "okay";
+ *     pinctrl-names = "default";
+ *     pinctrl-0 = <&main_i2c1_pins_default>;
+ *     clock-frequency = <400000>;
+ *
+ *     // ambient-light-sensor@<addr> {
+ *     //     compatible = "<vendor>,<part>";
+ *     //     reg = <0x??>;
+ *     // };
+ * };
+ *
+ * &main_spi0 {
+ *     status = "okay";
+ *     // ...
+ * };
+ */
