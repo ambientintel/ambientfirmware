@@ -1,0 +1,331 @@
+# SK-AM62-LP Boot-Day Runbook
+
+First power-on procedure for the TI SK-AM62-LP evaluation board with firmware
+built from `ambientintel/ambientfirmware`.
+
+**Target:** TI SK-AM62-LP (AM625 SoC, low-power variant)
+**Host:** Apple Silicon Mac, Docker container (Ubuntu 22.04 x86_64 under QEMU)
+**SDK:** TI Processor SDK Linux AM62x 11.02.08.02
+**Artifacts produced by build:** `tiboot3.bin`, `tispl.bin`, `u-boot.img`, kernel image, DTBs
+
+---
+
+## 0. Before you touch the board — pre-flight checklist
+
+Run through this **before** the board arrives. Every item here can be done dry.
+
+- [ ] Identify an SD card. 8 GB minimum, Class 10 or better. A known-good card matters; flaky SD media is the #1 cause of mysterious boot failures.
+- [ ] Know which host port you'll use for the SD card reader. On a Mac, a USB-C card reader will enumerate as `/dev/disk<N>`. You'll pass this through to Docker or, simpler, burn the SD card from macOS directly.
+- [ ] Have a USB-C cable ready for the serial console (the SK-AM62-LP exposes UART0 over the XDS110 USB debug connector — same cable can power the board in some configs, but use the dedicated 5V barrel/USB-C power input for clean power).
+- [ ] Install a serial terminal on the Mac: `brew install minicom` or use `screen`. Alternatives: CoolTerm (GUI), `tio`.
+- [ ] Identify the boot-mode switch bank. On SK-AM62-LP this is **SW1** (sometimes silk-screened BOOTMODE). Factory default is typically SD boot — confirm against the board's printed quick-start card when it arrives.
+- [ ] Print or pin this runbook somewhere you can see it without scrolling while you're doing the first boot.
+
+---
+
+## 1. Verify build artifacts
+
+From inside the Docker container:
+
+```bash
+cd ~/ti-am62x/workspace
+ls -la deploy/   # or wherever your build drops artifacts
+```
+
+You should see, at minimum:
+
+| File | Role | Approx size |
+|---|---|---|
+| `tiboot3.bin` | R5 SPL + signed TIFS firmware, loaded by ROM from SD sector 0 offset | ~300–500 KB |
+| `tispl.bin` | FIT image with A53 SPL, ATF (BL31), OP-TEE (BL32), DM firmware | ~1–2 MB |
+| `u-boot.img` | U-Boot proper, loaded by A53 SPL | ~1 MB |
+| `Image` or `zImage` | Linux kernel | ~15–30 MB |
+| `k3-am625-sk-lp.dtb` | Device tree for this board | ~50–100 KB |
+
+If any of these are missing or zero bytes, **stop and rebuild** — do not proceed. A missing `tispl.bin` in particular will look like a dead board (ROM loads tiboot3, tiboot3 fails to find tispl, silence on UART).
+
+Quick sanity check:
+```bash
+file deploy/tiboot3.bin        # should say "data"
+file deploy/tispl.bin          # should say "FIT image"
+file deploy/u-boot.img         # should say "u-boot legacy image"
+```
+
+---
+
+## 2. Prepare the SD card
+
+The AM62x ROM expects either a raw-layout SD (binaries at fixed offsets) or an MBR-partitioned SD with a FAT boot partition. The TI SDK default and what we'll use is **MBR + FAT32 boot partition + ext4 rootfs**.
+
+### 2a. Identify the SD card device
+
+**On macOS (recommended — simpler than passing through to Docker):**
+```bash
+diskutil list
+# Find the card. It will appear as /dev/diskN where N is typically 2, 3, or 4.
+# VERIFY the size matches your card. Writing to the wrong disk will destroy your Mac's data.
+```
+
+**⚠️ Double-check the device node every single time.** `dd` with the wrong target is how people lose their home directory.
+
+### 2b. Unmount (don't eject) the card
+
+```bash
+diskutil unmountDisk /dev/diskN
+```
+
+### 2c. Partition the card
+
+You can either (a) use the SDK's `create-sdcard.sh` script from inside the Docker container with the SD card passed through, or (b) partition manually. Manual is more reliable on macOS:
+
+```bash
+# Zero the first 16 MB to wipe any prior bootloader / partition table
+sudo dd if=/dev/zero of=/dev/rdiskN bs=1m count=16 conv=fsync
+
+# Create a new MBR with two partitions:
+#   p1: FAT32, ~256 MB, bootable
+#   p2: Linux, remainder
+sudo fdisk -e /dev/diskN
+# (use: edit partition 1 as type 0x0C (FAT32-LBA), set bootable flag,
+#  partition 2 as type 0x83. Write with 'w', quit with 'q'.)
+```
+
+Alternatively, if you're more comfortable in Linux-land, do it from the Docker container with the device passed through (`--device=/dev/diskN`) using `sfdisk`:
+
+```bash
+# Inside container, with card at /dev/sdX
+sudo sfdisk /dev/sdX <<EOF
+label: dos
+,256M,0c,*
+,,83
+EOF
+```
+
+### 2d. Format
+
+```bash
+# macOS
+sudo newfs_msdos -F 32 -v BOOT /dev/rdiskNs1
+# (ext4 formatting of the second partition is easier from inside the container)
+
+# Inside Docker container:
+sudo mkfs.ext4 -L rootfs /dev/sdXN2
+```
+
+### 2e. Copy boot artifacts to the FAT partition
+
+Mount the FAT partition and copy the three boot-chain files plus kernel and DTB:
+
+```bash
+# macOS, card will auto-mount as /Volumes/BOOT after formatting
+cp deploy/tiboot3.bin       /Volumes/BOOT/
+cp deploy/tispl.bin         /Volumes/BOOT/
+cp deploy/u-boot.img        /Volumes/BOOT/
+cp deploy/Image             /Volumes/BOOT/
+cp deploy/k3-am625-sk-lp.dtb /Volumes/BOOT/
+sync
+diskutil unmountDisk /dev/diskN
+```
+
+Filenames matter. The ROM looks for `tiboot3.bin` exactly; the A53 SPL looks for `tispl.bin` and `u-boot.img` exactly. Case matters on some filesystem tools — FAT32 is case-insensitive but some tools care.
+
+### 2f. Populate the rootfs partition
+
+Extract the rootfs tarball to the ext4 partition. From inside the container with the card mounted at `/mnt/sdcard-rootfs`:
+
+```bash
+sudo tar -xpf deploy/tisdk-default-image-am62xx-evm.tar.xz -C /mnt/sdcard-rootfs
+sudo sync
+sudo umount /mnt/sdcard-rootfs
+```
+
+(Substitute your actual rootfs image name.)
+
+---
+
+## 3. Hardware setup
+
+1. **Boot mode switch (SW1) set to SD boot.** Consult the board's printed quick-start card for the exact bit pattern — do not guess from memory. For AM625 SK boards the SD-boot pattern is typically `ON OFF ON ON ON OFF OFF OFF` (LSB first, but **verify with TI's documentation for the LP variant specifically**).
+2. **Insert the SD card** into the microSD slot.
+3. **Connect the USB-C serial/debug cable** to the XDS110 port (usually labeled J18 or similar). This provides the UART0 console.
+4. **Do NOT connect power yet.**
+
+---
+
+## 4. Open the serial console
+
+On the Mac, with the USB-C cable connected:
+
+```bash
+ls /dev/tty.usb*
+# You should see TWO devices appear (the XDS110 exposes two UARTs):
+#   /dev/tty.usbmodemXXXXXX1  — typically CC1352/debug, ignore
+#   /dev/tty.usbmodemXXXXXX3  — MAIN DOMAIN UART (the one you want)
+# The correct port is usually the HIGHER-numbered one. Try both if unsure.
+```
+
+Open it:
+
+```bash
+# minicom
+minicom -D /dev/tty.usbmodemXXXXXX3 -b 115200
+
+# or screen
+screen /dev/tty.usbmodemXXXXXX3 115200
+
+# or tio (nicest for firmware work — handles reconnects)
+tio /dev/tty.usbmodemXXXXXX3 -b 115200
+```
+
+Serial settings: **115200 8N1, no flow control.**
+
+Once open: you should see nothing (the board isn't powered yet). That's the correct state.
+
+---
+
+## 5. Power on and watch the boot chain
+
+Connect the 5V power input. Expected boot sequence, in order:
+
+### Stage 1 — ROM → tiboot3 (R5 SPL)
+You should see within ~1 second:
+```
+U-Boot SPL 2024.xx-ti-... (date) +0000
+SYSFW ABI: 3.1 (firmware rev 0xNNNN '23.0.x--v09....')
+SPL initial stack usage: NNN bytes
+Trying to boot from MMC2
+```
+**If you see nothing here:** ROM didn't find or couldn't read `tiboot3.bin`. See Troubleshooting §A.
+
+### Stage 2 — tiboot3 loads tispl.bin
+```
+Loading Environment from MMC... OK
+...
+Loading fit image from MMC
+```
+**If it hangs here:** DDR training likely failed, or `tispl.bin` is missing/corrupt. See Troubleshooting §B.
+
+### Stage 3 — A53 SPL hands off to U-Boot
+After DDR init you'll see a second U-Boot banner — this time on the A53:
+```
+U-Boot 2024.xx-ti-... (date) +0000
+CPU: AM62X SR1.0 HS-FS
+Model: Texas Instruments AM625 SK LP
+...
+Hit any key to stop autoboot:  3
+```
+**If it hangs here:** `u-boot.img` is missing or OP-TEE/ATF handoff failed. See Troubleshooting §C.
+
+### Stage 4 — U-Boot autoboots kernel
+Let autoboot proceed (or hit a key to get a U-Boot prompt if you want to poke around). You should see:
+```
+Booting kernel from legacy image at 82000000 ...
+Starting kernel ...
+
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd034]
+[    0.000000] Linux version 6.x.x-ti-...
+...
+```
+**If kernel panics or hangs:** See Troubleshooting §D.
+
+### Stage 5 — Rootfs mounts, systemd starts
+```
+[    N.NNNNNN] EXT4-fs (mmcblk1p2): mounted filesystem ...
+Welcome to TI SDK ...
+am62xx-evm login:
+```
+**Default login:** `root` (no password, for the stock TI rootfs).
+
+---
+
+## 6. Success criteria
+
+First boot is "working" when **all** of these are true:
+- [ ] Login prompt appears on UART0.
+- [ ] `uname -a` shows your built kernel version.
+- [ ] `cat /proc/device-tree/model` returns the SK-AM62-LP string.
+- [ ] `dmesg | grep -i error` returns nothing alarming (a few benign warnings about unsupported peripherals are normal).
+- [ ] `ls /sys/class/net` shows at least `lo` and `eth0`.
+
+Capture the full boot log on first success:
+```bash
+# From the host, before connecting:
+tio /dev/tty.usbmodemXXXXXX3 -b 115200 -l -L first-boot.log
+```
+Commit `first-boot.log` to the repo as a reference for future regressions.
+
+---
+
+## 7. Troubleshooting
+
+### §A. Silence on UART (no tiboot3 banner)
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Nothing at all on serial | Wrong UART port on host | Try the other `/dev/tty.usbmodem*` device |
+| Nothing at all on serial | Boot mode switch wrong | Re-verify SW1 against board QSG |
+| Nothing at all on serial | SD card unreadable by ROM | Re-burn card; try a different card |
+| Nothing at all on serial | Power not actually applied | Check power LED on board |
+| Garbage on serial | Wrong baud rate | Confirm 115200 8N1 |
+| `tiboot3` banner then nothing | `tispl.bin` missing from FAT | Re-copy and `sync` |
+
+**Recovery path:** AM62x supports UART boot as fallback. If SD boot never works, switch SW1 to UART boot mode and use TI's `sk-am62b-*` UART-boot scripts from the SDK to push `tiboot3.bin` over the console. This is how you un-brick a board that won't read SD.
+
+### §B. Hang between "Trying to boot from MMC2" and second banner
+
+Almost always DDR-related. Things to check:
+- `tispl.bin` was built with the **LP variant** DDR config, not the plain SK. The LP board has different DDR timings. In the SDK, this means the k3-am625-sk-lp-ddr config was selected during U-Boot build. Rebuild if you're not sure.
+- Rebuild with `DEBUG=1` on SPL to get more verbose DDR training output.
+
+### §C. A53 U-Boot banner never appears
+
+The R5 SPL loaded tispl.bin but something inside it failed. Usually one of:
+- ATF (BL31) didn't start. Check tispl.bin was built with ATF included.
+- OP-TEE (BL32) crashed on init. Less common on a plain dev board; more common if you've modified OP-TEE.
+- DM (device manager) firmware missing. The R5 needs a valid DM binary — the SDK bundles this.
+
+Rebuild the full boot chain cleanly and try again before digging deeper.
+
+### §D. Kernel boot failures
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| "Bad Linux ARM64 Image magic!" | DTB copied as kernel or vice versa | Check files on FAT partition |
+| Kernel loads, hangs at "Starting kernel..." | Wrong DTB | Confirm `k3-am625-sk-lp.dtb` (not plain `sk`) |
+| Panic: VFS: Unable to mount root fs | rootfs partition wrong / missing | Check `root=/dev/mmcblk1p2` in bootargs; verify partition exists and is ext4 |
+| Boots but no login prompt | Console on wrong UART | Check `console=ttyS2,115200n8` in bootargs (AM62x main UART0 = ttyS2 in Linux) |
+
+The `mmcblk1` vs `mmcblk0` thing catches people — eMMC enumerates before SD. On SK boards with no eMMC populated, SD may be `mmcblk0`. Check `ls /dev/mmcblk*` from a U-Boot shell (`mmc list`) if unsure.
+
+### §E. "It booted once, now it won't"
+
+- Card may have corrupted on power-off. Re-burn.
+- Did U-Boot save an environment to the card? `env default -a; env save` from U-Boot prompt clears it.
+- Did you `sync` before unmounting the card? Always `sync`.
+
+---
+
+## 8. Quick-reference card (tape to monitor)
+
+```
+SERIAL:  115200 8N1, /dev/tty.usbmodem*3 (try higher-numbered)
+BOOTMODE: SW1 → SD boot (verify against board QSG)
+LOGIN:   root / (no password)
+UART:    Linux console = ttyS2
+ROOTFS:  /dev/mmcblk1p2 (SD), p1 is FAT boot
+BOOT CHAIN: ROM → tiboot3.bin → tispl.bin → u-boot.img → Image + dtb → rootfs
+```
+
+---
+
+## 9. After first successful boot
+
+Immediate next steps, in order of value:
+1. **Commit `first-boot.log`** to the repo. You'll want this baseline.
+2. **Record the exact boot timing** (`dmesg` timestamps). Regressions in boot time are a great early warning.
+3. **Verify USB, Ethernet, GPIO LED.** Anything that's easy to poke from the shell — poke it. Each thing that works now is one thing you don't have to debug later.
+4. **Snapshot the working SD card image.** `sudo dd if=/dev/diskN of=golden-sd.img bs=1m` then compress. When you break something later, you can get back to "known good" in 5 minutes.
+
+---
+
+*This runbook is a living document. Every surprise on first boot should either be resolved by following it, or result in an edit to it.*
