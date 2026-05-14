@@ -84,3 +84,4 @@ Container-side edits are visible on the host via the bind mount. Commit and push
 - `workspace/SETUP-NOTES.md` — environment setup, package lists, verified build commands, build times.
 - `workspace/docs/BOOT_DAY_RUNBOOK.md` — first power-on procedure for SK-AM62-LP.
 - `workspace/device-tree/README.md` — custom DT build flow.
+- `docs/vendor/` — TI reference docs pinned to known revisions (SK-AM62-LP EVM user's guide, etc.).
