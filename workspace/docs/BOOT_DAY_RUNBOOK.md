@@ -16,9 +16,9 @@ Run through this **before** the board arrives. Every item here can be done dry.
 
 - [ ] Identify an SD card. 8 GB minimum, Class 10 or better. A known-good card matters; flaky SD media is the #1 cause of mysterious boot failures.
 - [ ] Know which host port you'll use for the SD card reader. On a Mac, a USB-C card reader will enumerate as `/dev/disk<N>`. You'll pass this through to Docker or, simpler, burn the SD card from macOS directly.
-- [ ] Have a **micro-USB-B** cable ready for the serial console. The SK-AM62-LP XDS110 debug connector (J15) and FT4232 UART bridge (J17) are both micro-USB-B, not USB-C. Use the dedicated power input for clean power.
-- [ ] Install a serial terminal on the Mac: `brew install minicom` or use `screen`. Alternatives: CoolTerm (GUI), `tio`.
-- [ ] Identify the boot-mode switch bank. **SW1 is a push button** (user/reset button), not the boot mode switches. The boot mode DIP switch bank is labeled separately — confirm the exact label and SD-boot bit pattern against the board's printed Quick Start Guide (DLPU091A) when it arrives.
+- [ ] Have a **micro-USB-B** cable ready for the serial console. J17 (FT4232 UART) is micro-USB-B. J18 (XDS110 JTAG) is also micro-USB-B. Power is USB-C into J13 or J15 — these are separate connectors.
+- [ ] Install `tio` on the Mac: `brew install tio`. Preferred over `screen` (handles reconnects, no PTY issues).
+- [ ] Identify the boot-mode switch bank. **SW1 is a push button** (RST+INT), not a boot mode switch. Boot mode is set by DIP switch banks **SW3** and **SW4**. Reference: SPRUJ51A Fig 2-5.
 - [ ] Print or pin this runbook somewhere you can see it without scrolling while you're doing the first boot.
 
 ---
@@ -40,7 +40,7 @@ You should see, at minimum:
 | `tispl.bin` | FIT image with A53 SPL, ATF (BL31), OP-TEE (BL32), DM firmware | ~1–2 MB |
 | `u-boot.img` | U-Boot proper, loaded by A53 SPL | ~1 MB |
 | `Image` or `zImage` | Linux kernel | ~15–30 MB |
-| `k3-am625-sk-lp.dtb` | Device tree for this board | ~50–100 KB |
+| `k3-am62-lp-sk.dtb` | Device tree for this board | ~50–100 KB |
 
 If any of these are missing or zero bytes, **stop and rebuild** — do not proceed. A missing `tispl.bin` in particular will look like a dead board (ROM loads tiboot3, tiboot3 fails to find tispl, silence on UART).
 
@@ -55,91 +55,52 @@ file deploy/u-boot.img         # should say "u-boot legacy image"
 
 ## 2. Prepare the SD card
 
-The AM62x ROM expects either a raw-layout SD (binaries at fixed offsets) or an MBR-partitioned SD with a FAT boot partition. The TI SDK default and what we'll use is **MBR + FAT32 boot partition + ext4 rootfs**.
+**Recommended: use balenaEtcher + the official LP WIC image.** Do not use macOS `fdisk` to manually partition — macOS fdisk produces unreliable partition tables that the AM62x ROM silently rejects, causing complete boot silence.
 
-### 2a. Identify the SD card device
+### 2a. Download the LP WIC image
 
-**On macOS (recommended — simpler than passing through to Docker):**
-```bash
-diskutil list
-# Find the card. It will appear as /dev/diskN where N is typically 2, 3, or 4.
-# VERIFY the size matches your card. Writing to the wrong disk will destroy your Mac's data.
+Download the LP-specific image (no TI account required):
+```
+https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-PvdSyIiioq/12.00.00.07.04/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz
 ```
 
-**⚠️ Double-check the device node every single time.** `dd` with the wrong target is how people lose their home directory.
-
-### 2b. Unmount (don't eject) the card
-
+Or via curl:
 ```bash
-diskutil unmountDisk /dev/diskN
+curl -L -o ~/Downloads/tisdk-lp-evm-12.wic.xz \
+  "https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-PvdSyIiioq/12.00.00.07.04/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz"
 ```
 
-### 2c. Partition the card
+### 2b. Flash with balenaEtcher
 
-You can either (a) use the SDK's `create-sdcard.sh` script from inside the Docker container with the SD card passed through, or (b) partition manually. Manual is more reliable on macOS:
+1. Install: `brew install --cask balenaetcher` (use **arm64** build on Apple Silicon)
+2. Open balenaEtcher → Flash from file → select the `.wic.xz` (no need to decompress)
+3. Select the SD card target
+4. Flash
 
-```bash
-# Zero the first 16 MB to wipe any prior bootloader / partition table
-sudo dd if=/dev/zero of=/dev/rdiskN bs=1m count=16 conv=fsync
+### 2c. Replace boot files with SDK 11.02.08.02 prebuilts (optional)
 
-# Create a new MBR with two partitions:
-#   p1: FAT32, ~256 MB, bootable
-#   p2: Linux, remainder
-sudo fdisk -e /dev/diskN
-# (use: edit partition 1 as type 0x0C (FAT32-LBA), set bootable flag,
-#  partition 2 as type 0x83. Write with 'w', quit with 'q'.)
-```
-
-Alternatively, if you're more comfortable in Linux-land, do it from the Docker container with the device passed through (`--device=/dev/diskN`) using `sfdisk`:
+The WIC image above ships with SDK 12.x binaries. For work that must stay on SDK 11.02.08.02, after flashing mount the FAT BOOT partition and replace:
 
 ```bash
-# Inside container, with card at /dev/sdX
-sudo sfdisk /dev/sdX <<EOF
-label: dos
-,256M,0c,*
-,,83
-EOF
-```
+PREBUILT=~/ti-am62x/workspace/sdk/ti-processor-sdk-linux-am62xx-evm/board-support/prebuilt-images/am62xx-lp-evm
 
-### 2d. Format
-
-```bash
-# macOS
-sudo newfs_msdos -F 32 -v BOOT /dev/rdiskNs1
-# (ext4 formatting of the second partition is easier from inside the container)
-
-# Inside Docker container:
-sudo mkfs.ext4 -L rootfs /dev/sdXN2
-```
-
-### 2e. Copy boot artifacts to the FAT partition
-
-Mount the FAT partition and copy the three boot-chain files plus kernel and DTB:
-
-```bash
-# macOS, card will auto-mount as /Volumes/BOOT after formatting
-cp deploy/tiboot3.bin       /Volumes/BOOT/
-cp deploy/tispl.bin         /Volumes/BOOT/
-cp deploy/u-boot.img        /Volumes/BOOT/
-cp deploy/Image             /Volumes/BOOT/
-cp deploy/k3-am625-sk-lp.dtb /Volumes/BOOT/
+# HS-FS variant explicitly — board PROC124E2 is HS-FS, not plain HS or GP
+cp $PREBUILT/tiboot3-am62x-hs-fs-evm.bin  /Volumes/BOOT/tiboot3.bin
+cp $PREBUILT/tispl.bin                     /Volumes/BOOT/
+cp $PREBUILT/u-boot.img                    /Volumes/BOOT/
+cp $PREBUILT/Image                         /Volumes/BOOT/
+cp $PREBUILT/k3-am62-lp-sk.dtb            /Volumes/BOOT/
+cp $PREBUILT/uEnv.txt                      /Volumes/BOOT/
 sync
 diskutil unmountDisk /dev/diskN
 ```
 
-Filenames matter. The ROM looks for `tiboot3.bin` exactly; the A53 SPL looks for `tispl.bin` and `u-boot.img` exactly. Case matters on some filesystem tools — FAT32 is case-insensitive but some tools care.
+**tiboot3 variant matters.** The prebuilt directory contains three variants:
+- `tiboot3-am62x-gp-evm.bin` — GP devices only
+- `tiboot3-am62x-hs-evm.bin` — HS devices only
+- `tiboot3-am62x-hs-fs-evm.bin` — **use this for PROC124E2 (HS-FS)**
 
-### 2f. Populate the rootfs partition
-
-Extract the rootfs tarball to the ext4 partition. From inside the container with the card mounted at `/mnt/sdcard-rootfs`:
-
-```bash
-sudo tar -xpf deploy/tisdk-default-image-am62xx-evm.tar.xz -C /mnt/sdcard-rootfs
-sudo sync
-sudo umount /mnt/sdcard-rootfs
-```
-
-(Substitute your actual rootfs image name.)
+Using the wrong variant causes the ROM to silently reject the binary — no error, no output, board appears dead.
 
 ---
 
@@ -150,7 +111,9 @@ sudo umount /mnt/sdcard-rootfs
    | | sw1 | sw2 | sw3 | sw4 | sw5 | sw6 | sw7 | sw8 |
    |---|---|---|---|---|---|---|---|---|
    | **SW3** (bits 0–7) | ON | ON | OFF | OFF | OFF | OFF | ON | OFF |
-   | **SW4** (bits 8–15) | ON | OFF | ON | OFF | OFF | OFF | OFF | OFF |
+   | **SW4** (bits 8–15) | OFF | ON | OFF | OFF | OFF | OFF | OFF | OFF |
+
+   Source: SPRUJ51A Fig 2-5. SW1 is a push button (RST+INT) — do not touch.
 
 2. **Insert the SD card** into the microSD slot.
 3. **Connect a micro-USB-B cable to J17** (labeled "FTDI Micro-USB" on the board). This is the FT4232 UART console. J18 is XDS110 JTAG — not the console.
@@ -163,25 +126,22 @@ sudo umount /mnt/sdcard-rootfs
 On the Mac, with the micro-USB-B cable connected to J17 (FTDI):
 
 ```bash
-ls /dev/tty.usb*
-# You should see TWO devices appear (the XDS110 exposes two UARTs):
-#   /dev/tty.usbmodemXXXXXX1  — typically CC1352/debug, ignore
-#   /dev/tty.usbmodemXXXXXX3  — MAIN DOMAIN UART (the one you want)
-# The correct port is usually the HIGHER-numbered one. Try both if unsure.
+ls /dev/tty.usbserial-*
+# J17 (FT4232) enumerates as FOUR ports — one per UART channel:
+#   /dev/tty.usbserial-XXXXXXXXXXXX40  — SOC_UART0  ← Linux console, use this
+#   /dev/tty.usbserial-XXXXXXXXXXXX41  — SOC_UART1
+#   /dev/tty.usbserial-XXXXXXXXXXXX42  — WKUP_UART0
+#   /dev/tty.usbserial-XXXXXXXXXXXX43  — MCU_UART0
+# The serial number prefix (12 digits) varies by cable/host.
 ```
 
-Open it:
+Open the Linux console port (ends in 40):
 
 ```bash
-# minicom
-minicom -D /dev/tty.usbmodemXXXXXX3 -b 115200
-
-# or screen
-screen /dev/tty.usbmodemXXXXXX3 115200
-
-# or tio (nicest for firmware work — handles reconnects)
-tio /dev/tty.usbmodemXXXXXX3 -b 115200
+tio /dev/tty.usbserial-XXXXXXXXXXXX40 -b 115200
 ```
+
+If port 40 says "No such file or directory", run `ls /dev/tty.usbserial-*` and use the lowest-numbered result.
 
 Serial settings: **115200 8N1, no flow control.**
 
@@ -256,7 +216,7 @@ First boot is "working" when **all** of these are true:
 Capture the full boot log on first success:
 ```bash
 # From the host, before connecting:
-tio /dev/tty.usbmodemXXXXXX3 -b 115200 -l -L first-boot.log
+tio /dev/tty.usbserial-XXXXXXXXXXXX40 -b 115200 --log-file first-boot.log
 ```
 Commit `first-boot.log` to the repo as a reference for future regressions.
 
@@ -268,19 +228,22 @@ Commit `first-boot.log` to the repo as a reference for future regressions.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Nothing at all on serial | Wrong UART port on host | Try the other `/dev/tty.usbmodem*` device |
-| Nothing at all on serial | Boot mode switch wrong | Re-verify SW1 against board QSG |
-| Nothing at all on serial | SD card unreadable by ROM | Re-burn card; try a different card |
-| Nothing at all on serial | Power not actually applied | Check power LED on board |
+| Nothing at all on serial | Wrong UART port | Use port ending in `40` (SOC_UART0) |
+| Nothing at all on serial | macOS fdisk SD card | Re-flash with balenaEtcher + LP WIC image (§2) |
+| Nothing at all on serial | Wrong tiboot3 variant | Use `tiboot3-am62x-hs-fs-evm.bin` for PROC124E2 |
+| Nothing at all on serial | Boot mode switches wrong | Verify SW3/SW4 against SPRUJ51A Fig 2-5 |
+| Nothing at all on serial | Power not applied | Check power LED on board |
 | Garbage on serial | Wrong baud rate | Confirm 115200 8N1 |
 | `tiboot3` banner then nothing | `tispl.bin` missing from FAT | Re-copy and `sync` |
 
-**Recovery path:** AM62x supports UART boot as fallback. If SD boot never works, switch SW1 to UART boot mode and use TI's `sk-am62b-*` UART-boot scripts from the SDK to push `tiboot3.bin` over the console. This is how you un-brick a board that won't read SD.
+**Note:** The AM62x ROM produces **zero UART output itself**. First output comes from `tiboot3` (R5 SPL). If the ROM cannot load `tiboot3.bin` — bad SD card, wrong tiboot3 variant, wrong boot mode — the result is complete silence. Do not assume the board is dead.
+
+**Recovery path:** AM62x supports UART boot as fallback. If SD boot never works, switch to UART boot mode via SW3/SW4 and use the SDK's UART-boot scripts to push `tiboot3.bin` over the console. This confirms whether the board hardware is alive independent of SD card issues.
 
 ### §B. Hang between "Trying to boot from MMC2" and second banner
 
 Almost always DDR-related. Things to check:
-- `tispl.bin` was built with the **LP variant** DDR config, not the plain SK. The LP board has different DDR timings. In the SDK, this means the k3-am625-sk-lp-ddr config was selected during U-Boot build. Rebuild if you're not sure.
+- `tispl.bin` was built with the **LP variant** DDR config, not the plain SK. The LP board has different DDR timings. In the SDK, this means the k3-am62-lp-sk-ddr config was selected during U-Boot build. Rebuild if you're not sure.
 - Rebuild with `DEBUG=1` on SPL to get more verbose DDR training output.
 
 ### §C. A53 U-Boot banner never appears
@@ -297,7 +260,7 @@ Rebuild the full boot chain cleanly and try again before digging deeper.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | "Bad Linux ARM64 Image magic!" | DTB copied as kernel or vice versa | Check files on FAT partition |
-| Kernel loads, hangs at "Starting kernel..." | Wrong DTB | Confirm `k3-am625-sk-lp.dtb` (not plain `sk`) |
+| Kernel loads, hangs at "Starting kernel..." | Wrong DTB | Confirm `k3-am62-lp-sk.dtb` (not plain `sk`) |
 | Panic: VFS: Unable to mount root fs | rootfs partition wrong / missing | Check `root=/dev/mmcblk1p2` in bootargs; verify partition exists and is ext4 |
 | Boots but no login prompt | Console on wrong UART | Check `console=ttyS2,115200n8` in bootargs (AM62x main UART0 = ttyS2 in Linux) |
 
@@ -314,13 +277,16 @@ The `mmcblk1` vs `mmcblk0` thing catches people — eMMC enumerates before SD. O
 ## 8. Quick-reference card (tape to monitor)
 
 ```
-SERIAL:  J17 (FTDI Micro-USB), 115200 8N1, /dev/tty.usbmodem* (try higher-numbered)
+SERIAL:  J17 (FTDI Micro-USB), 115200 8N1, /dev/tty.usbserial-*40 (SOC_UART0)
 JTAG:    J18 (XDS110 Micro-USB)
 POWER:   USB-C into J13 or J15 (5-15V, 3A min)
-BOOTMODE: SW3+SW4 → SD boot: SW3=ON ON OFF OFF OFF OFF ON OFF, SW4=ON OFF ON OFF OFF OFF OFF OFF
+BOOTMODE: SW3=ON ON OFF OFF OFF OFF ON OFF (sw1,2,7 ON)
+          SW4=OFF ON OFF OFF OFF OFF OFF OFF (sw2 ON only)
+          Source: SPRUJ51A Fig 2-5
 LOGIN:   root / (no password)
 UART:    Linux console = ttyS2
 ROOTFS:  /dev/mmcblk1p2 (SD), p1 is FAT boot
+TIBOOT3: use tiboot3-am62x-hs-fs-evm.bin for PROC124E2 (HS-FS device)
 BOOT CHAIN: ROM → tiboot3.bin → tispl.bin → u-boot.img → Image + dtb → rootfs
 ```
 

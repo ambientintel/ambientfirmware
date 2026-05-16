@@ -54,17 +54,15 @@ source /workspace/sdk/ti-processor-sdk-linux-am62xx-evm/kernel-env.sh
 
 For userspace builds, `linux-devkit/environment-setup` is the correct thing to source. Keep the two kinds of builds in separate shells.
 
-## Workspace layout — known mismatch (TODO)
+## Workspace layout
 
-`enter.sh` currently bind-mounts `~/ti-am62x/workspace`, but this repo lives at `~/ambientfirmware/`. `workspace/CLAUDE.md` also refers to `~/ti-am62x/enter.sh` as the entry point. The likely explanation is that the repo was renamed or moved from `~/ti-am62x/` to `~/ambientfirmware/` and neither file was updated.
+`enter.sh` bind-mounts `~/ti-am62x/workspace`. This repo lives at `~/ambientfirmware/`. A symlink makes everything work without editing scripts:
 
-Options to resolve, pick one and commit:
+```
+ln -s ~/ambientfirmware/workspace ~/ti-am62x/workspace
+```
 
-- **Fix the path.** Change `enter.sh` to mount `$(pwd)/workspace` (or `~/ambientfirmware/workspace`). Update CLAUDE.md references. Simplest; makes the tracked `workspace/` the live workspace.
-- **Keep the split.** If the intent is a tracked `workspace/` mirror in this repo and a separate live tree at `~/ti-am62x/workspace` that holds the 14 GB SDK and build artifacts, document the sync rules here. Currently undocumented.
-- **Symlink.** `ln -s ~/ambientfirmware/workspace ~/ti-am62x/workspace` makes `enter.sh` work without editing anything. Ugly but zero-risk.
-
-Until this is resolved, assume the scripts expect `~/ti-am62x/workspace` to exist and point at this repo's `workspace/`.
+The 14 GB TI SDK and build outputs live at `~/ti-am62x/workspace/sdk/` (gitignored). The symlink means container edits are immediately visible in the tracked `workspace/` tree.
 
 ## Git workflow
 
@@ -75,8 +73,54 @@ Container-side edits are visible on the host via the bind mount. Commit and push
 - **Rosetta off.** See prerequisites. Non-negotiable until TI fixes the installer.
 - **Don't source `linux-devkit/environment-setup` for kernel/U-Boot builds.** Breaks `HOSTCC`. Use `kernel-env.sh` per SETUP-NOTES.
 - **TI DT naming.** Board is `am62-lp-sk`, not `am625-sk-lp`. Wrong name produces non-existent include paths. See `workspace/CLAUDE.md` → "Naming convention."
+- **SD card prep on macOS.** Do not use macOS `fdisk` to manually partition. The ROM silently rejects the result. Use **balenaEtcher + the LP WIC image** (`tisdk-default-image-am62xx-lp-evm-*.rootfs.wic.xz`) from the TI SDK download page. See `workspace/docs/BOOT_DAY_RUNBOOK.md §2`.
+- **tiboot3 variant for PROC124E2.** The board is HS-FS. Use `tiboot3-am62x-hs-fs-evm.bin` from `prebuilt-images/am62xx-lp-evm/`, not the plain `tiboot3.bin` symlink (may point to HS, not HS-FS). Wrong variant = complete silence on boot.
 - **Yocto builds.** Not attempted locally. Estimated 12–20+ hours under QEMU; plan on a cloud x86 VM.
 - **Two `.dtb` targets coming.** SK-AM62-LP dev DTB uses SK DDR settings; production DTB for the OSD62x-PM custom board needs Octavo's DDR configuration and is a separate artifact.
+
+## First boot (2026-05-15)
+
+First successful boot of the SK-AM62-LP, step by step:
+
+**What was tried first and failed:**
+
+1. Partitioned the SD card manually on macOS using `fdisk -e` and `newfs_msdos -F 32`. The AM62x ROM produced zero serial output. Root cause: macOS fdisk creates partition tables the ROM silently rejects (wrong type, missing bootable flag, or bad alignment). Do not use macOS fdisk for this board.
+
+2. Flashed a WIC image using balenaEtcher. Flashing appeared to succeed but errored out twice ("writer process ended unexpectedly"). File was intact (verified with `ls -lh`). balenaEtcher failed on this file; unclear why.
+
+**What worked:**
+
+3. Flashed the SDK 12.00.00.07.04 LP WIC image using the `xz | dd` pipeline:
+   ```
+   diskutil unmountDisk /dev/disk19
+   xz -d --stdout /Users/brianxbradley/Downloads/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz \
+     | sudo dd of=/dev/rdisk19 bs=8m
+   ```
+   The WIC image is a complete disk image (MBR + FAT32 boot + ext4 rootfs) with the correct HS-FS tiboot3 variant already placed. No manual partitioning needed.
+
+4. Boot switches: SW3 (bits 0–7): sw1, sw2, sw7 ON, rest OFF. SW4 (bits 8–15): sw2 ON only. (Source: SPRUJ51A Fig 2-5. SW1 is a push button, not a DIP switch — do not touch.)
+
+5. Serial console: connect micro-USB-B to J17 (FT4232 UART bridge). J17 enumerates as four UART ports; use the one ending in `40` (SOC_UART0 = Linux console):
+   ```
+   tio /dev/tty.usbserial-XXXXXXXXXXXX40 -b 115200
+   ```
+
+6. Connected USB-C power to J13. Board booted to login prompt on first attempt.
+
+**First boot results (kernel from WIC image, SDK 12.x):**
+```
+uname -a: Linux am62xx-lp-evm 6.18.13-ti-00778-gc21449208550-dirty aarch64
+model:    Texas Instruments AM62x LP SK
+net:      eth0 eth1 lo mcu_mcan0 mcu_mcan1
+errors:   only benign (RTC erratum i2327, PowerVR GPU firmware missing)
+```
+
+**What's next:**
+- Boot with custom kernel (SDK 11.x + our kernel build) by replacing the boot files on the WIC-flashed SD card
+- Set up TFTP/NFS dev loop
+- Build and boot the ambient DTB (`k3-am62-lp-sk-ambient.dtb`)
+
+---
 
 ## Further reading
 

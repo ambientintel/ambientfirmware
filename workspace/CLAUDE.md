@@ -7,8 +7,8 @@ Dev board: TI SK-AM62-LP (low-power AM62x starter kit)
 
 SoC: AM625 — quad Cortex-A53 @ 1.4 GHz + Cortex-M4F + Cortex-R5F
 Memory: LPDDR4
-Debug console: onboard FT4232 USB-UART bridge via micro-USB (J17 on board)
-JTAG: onboard XDS110 via separate micro-USB (J15)
+Debug console: onboard FT4232 USB-UART bridge via micro-USB (J17 on board) — enumerates as 4x tty.usbserial-*40/41/42/43; SOC_UART0 = port ending in 40
+JTAG: onboard XDS110 via separate micro-USB (J18)
 Radar prototyping: IWR6843AOP via Mistral pre-built module on Raspberry Pi (early testing only; production uses raw silicon on custom board).
 
 Custom board: integrates Octavo OSD62x-PM (AM6254 + 1GB DDR4 + passives) + IWR6843AOP. See "Custom board architecture" below.
@@ -32,7 +32,7 @@ SDK root: /workspace/sdk/ti-processor-sdk-linux-am62xx-evm/ (in container)
 On Mac: ~/ti-am62x/workspace/sdk/ti-processor-sdk-linux-am62xx-evm/
 Kernel: board-support/ti-linux-kernel-6.12.57+git-ti/
 U-Boot: board-support/u-boot-*/
-Prebuilt images: board-support/prebuilt-images/am62xx-evm/
+Prebuilt images (LP): board-support/prebuilt-images/am62xx-lp-evm/
 Cross toolchain (A53): aarch64-oe-linux-gcc 13.4 in linux-devkit/sysroots/x86_64-arago-linux/usr/bin/aarch64-oe-linux/
 R5F toolchain: k3r5-devkit/
 Build conventions
