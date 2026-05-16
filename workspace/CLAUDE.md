@@ -7,7 +7,7 @@ Dev board: TI SK-AM62-LP (low-power AM62x starter kit)
 
 SoC: AM625 — quad Cortex-A53 @ 1.4 GHz + Cortex-M4F + Cortex-R5F
 Memory: LPDDR4
-Debug console: onboard FT4232 USB-UART bridge via micro-USB (J17 on board) — enumerates as 4x tty.usbserial-*40/41/42/43; SOC_UART0 = port ending in 40
+Debug console: onboard FT4232 USB-UART bridge via micro-USB (J17 on board) — enumerates as 4x tty.usbserial-*40/41/42/43; SOC_UART0 = port ending in 40. Confirmed port on this machine: tty.usbserial-102612400940. Open with: tio /dev/tty.usbserial-102612400940 -b 115200. Connect J17 micro-USB BEFORE running tio, BEFORE powering on.
 JTAG: onboard XDS110 via separate micro-USB (J18)
 Radar prototyping: IWR6843AOP via Mistral pre-built module on Raspberry Pi (early testing only; production uses raw silicon on custom board).
 
@@ -97,12 +97,13 @@ Current status
  IWR6843AOP prototyped on Raspberry Pi via Mistral module
  Path A committed for custom board (raw silicon, TI Altium source)
  AM62 island SoC locked: Octavo OSD62x-PM (ADR-0002, 2026-04-18)
- SK-AM62-LP hardware received (on order)
- First boot with prebuilt SD card image
- First boot with custom kernel
+ SK-AM62-LP hardware received (2026-05-15)
+ First boot with prebuilt SD card image (SDK 12.x WIC, kernel 6.18.13-ti, 2026-05-15)
+ OTA decision: Mender self-hosted (ADR-0003, 2026-05-15)
+ First boot with custom kernel (SDK 11.x prebuilt, kernel 6.12.57-ti, 2026-05-16)
  TFTP/NFS dev loop set up
  Radar boot mode decision (see Open decisions)
- Connectivity / runtime / OTA decisions (see Open decisions)
+ Connectivity / runtime decisions (see Open decisions)
  Rootfs decision (deferred until BOM stabilizes)
  Pin mux spreadsheet against OSD62x-PM ball map
 Custom board architecture
@@ -194,6 +195,7 @@ Plan: research rootfs now (tisdk default or close), production rootfs decided af
 Closed decisions (see ADRs)
 - Custom board path: raw silicon (Path A), TI Altium source (implicit ADR-0001)
 - AM62 SoC: Octavo OSD62x-PM (ADR-0002, 2026-04-18). Supersedes "AM62 vs AM62A" open decision.
+- OTA: Mender self-hosted (ADR-0003, 2026-05-15).
 
 Radar workload shape (as of this writing)
 Firmware option: potentially TI OOB demo / mmWave SDK / custom — still evaluating
@@ -245,7 +247,9 @@ Push back on wrong framing rather than accommodating it
 Ask clarifying questions one at a time with 2–4 options
 No emojis, no headers in conversational responses, no restating the question before answering
 When chip or capability facts are needed, search TI / Octavo / vendor docs rather than relying on memory
-Current state (2026-04-18 session, updated)
-BOM, runtime, rootfs, and OTA decisions locked in session-findings-2026-04-18. AM62 SoC choice locked to OSD62x-PM in ADR-0002 on same date. AM62↔radar interface defined in docs/interfaces-am62-radar.md.
+Current state (2026-05-16 session)
+First boot achieved 2026-05-15 with SDK 12.x WIC image (kernel 6.18.13-ti). ADR-0003 committed (OTA = Mender self-hosted). Docs updated: RUNBOOK, FIRST_BOOT_TUTORIAL, CLAUDE.md, README.
 
-Next task: pin mux spreadsheet against OSD62x-PM ball map, using Octavo's OSD62x-PM to AM62x Pin Mapping application note as authoritative source.
+Lesson (2026-05-16): Complete UART silence after replacing boot files was caused by micro-USB cable in J18 (XDS110 JTAG) instead of J17 (FT4232 UART). Both connectors are micro-USB-B and look identical. Always verify J17 before assuming boot failure. Added to RUNBOOK §A and §3.
+
+Next task: TFTP/NFS dev loop (Step 15).

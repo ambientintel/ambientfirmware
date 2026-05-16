@@ -132,7 +132,7 @@ Using the wrong variant causes the ROM to silently reject the binary — no erro
    Source: SPRUJ51A Fig 2-5. SW1 is a push button (RST+INT) — do not touch.
 
 2. **Insert the SD card** into the microSD slot.
-3. **Connect a micro-USB-B cable to J17** (labeled "FTDI Micro-USB" on the board). This is the FT4232 UART console. J18 is XDS110 JTAG — not the console.
+3. **Connect a micro-USB-B cable to J17** (labeled "FTDI Micro-USB" on the board). This is the FT4232 UART console. J18 is XDS110 JTAG — **not the console**. Both connectors are micro-USB-B and look identical. J17 is the one closer to the SD card slot. Plugging into J18 by mistake produces complete silence on tio — no errors, no output, board appears dead.
 4. **Do NOT connect power yet.**
 
 ---
@@ -244,6 +244,7 @@ Commit `first-boot.log` to the repo as a reference for future regressions.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| Nothing at all on serial | **Cable in J18 instead of J17** | J17 = FTDI UART (console). J18 = XDS110 JTAG. Both are micro-USB-B. Move cable to J17. |
 | Nothing at all on serial | Wrong UART port | Use port ending in `40` (SOC_UART0) |
 | Nothing at all on serial | macOS fdisk SD card | Re-flash with `xz\|dd` + LP WIC image (§2b) |
 | Nothing at all on serial | Wrong tiboot3 variant | Use `tiboot3-am62x-hs-fs-evm.bin` for PROC124E2 |
