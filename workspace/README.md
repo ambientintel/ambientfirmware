@@ -15,7 +15,7 @@ TI low-power AM62x starter kit. Primary bring-up and software validation platfor
 - SoC: AM625 — quad Cortex-A53 @ 1.4 GHz, Cortex-M4F, Cortex-R5F
 - Memory: LPDDR4
 - Debug console: onboard FT4232 USB-UART bridge, micro-USB J17
-- JTAG: onboard XDS110, micro-USB J15
+- JTAG: onboard XDS110, micro-USB J18
 - Radar for early integration: IWR6843AOP via Mistral pre-built module on Raspberry Pi (USB-serial bridge). Production uses raw silicon.
 
 ### Custom board
@@ -81,7 +81,7 @@ workspace/                              ← bind-mounted at /workspace in contai
         ├── board-support/
         │   ├── ti-linux-kernel-6.12.57+git-ti/
         │   ├── u-boot-*/
-        │   └── prebuilt-images/am62xx-evm/
+        │   └── prebuilt-images/am62xx-lp-evm/
         ├── linux-devkit/               ← cross sysroot — treat as read-only
         ├── k3r5-devkit/                ← R5F toolchain
         └── kernel-env.sh              ← use this for kernel/U-Boot builds (see below)

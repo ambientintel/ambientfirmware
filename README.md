@@ -1,4 +1,4 @@
-# ambientfirmware
+# ambientfirm
 
 Containerized build environment and tracked working tree for TI AM62x Linux firmware
 work (bootloader, kernel, device tree, eventual Yocto image). Targets the SK-AM62-LP
