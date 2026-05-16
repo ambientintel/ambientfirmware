@@ -17,7 +17,7 @@ including every failure encountered and why it happened.
 
 | Item | Notes |
 |---|---|
-| SK-AM62-LP board | Verify the PCB says PROC124E2 — PROC124E1 boards from this batch were found to be defective (SoC never starts, chip stays cold) |
+| SK-AM62-LP board | Any board revision is fine. The board is an HS-FS device — ensure your SD card has `tiboot3-am62x-hs-fs-evm.bin`, not the generic `tiboot3.bin` symlink. Wrong variant = complete silence, which looks identical to a dead board. |
 | micro-USB-B cable × 2 | One for J17 (UART console), one for J18 (JTAG) if needed |
 | USB-C cable + charger | 5–15V, **3A minimum**. Apple 20W USB-C confirmed working. |
 | microSD card | 8 GB minimum, Class 10 or better. Cheap cards cause mysterious intermittent failures. |
@@ -429,15 +429,15 @@ The AM62x ROM produces **zero UART output itself**. The first output comes from
 | Nothing at all | macOS fdisk SD card | Re-flash with `xz\|dd` + WIC image |
 | Nothing at all | Wrong tiboot3 variant | Must be `tiboot3-am62x-hs-fs-evm.bin` |
 | Nothing at all | Boot mode switches wrong | Verify SW3/SW4 against SPRUJ51A Fig 2-5 |
-| Nothing at all | Board defective | See below — chip staying cold is the key signal |
+| Nothing at all | Wrong tiboot3 variant or bad SD partition | Most likely cause — see note below |
 | Garbage on serial | Wrong baud rate | Confirm 115200 8N1 |
 
-**Detecting a defective board:** If the SoC is genuinely dead, the chip package
-will stay at **room temperature** even after 30+ seconds of power. A working
-board — even one that fails to boot — will have a warm SoC (boot ROM executing,
-pulling current). A cold chip = the SoC core power rails never came up.
-This happened with PROC124E1 in this project; a replacement board (PROC124E2)
-booted on first attempt.
+**"Nothing at all" almost always means wrong SD card contents, not a dead board.**
+The AM62x ROM never prints anything — the first UART output comes from `tiboot3`.
+So wrong tiboot3 variant, macOS-partitioned SD card, or any SD card error looks
+identical to a completely dead board. Before concluding hardware failure, re-flash
+the SD card using `xz|dd` with the WIC image (§3) which contains the correct
+HS-FS tiboot3 variant and a ROM-compatible partition table.
 
 **Recovery via UART boot:** If SD boot never works but the chip is warm, switch
 to UART boot mode (SW3/SW4 per SPRUJ51A) and use the SDK's UART-boot scripts

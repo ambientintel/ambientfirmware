@@ -1,9 +1,18 @@
 # Session 2026-05-14/15 — First boot attempt with SK-AM62-LP hardware
 
+> **Correction (2026-05-16):** The board was NOT defective. The SD card had wrong
+> files — the TI SDK 11 prebuilt `tiboot3.bin` symlink is not the HS-FS variant
+> required by this device, and the macOS-partitioned card may have had a ROM-
+> incompatible partition table. The AM62x ROM produces zero UART output for any
+> boot failure, so "chip cold + all UARTs silent" is indistinguishable from a dead
+> board without this context. First boot succeeded the following day using the
+> correct WIC image (SDK 12.x, `tiboot3-am62x-hs-fs-evm.bin` included).
+> Do not RMA the board. Original session notes preserved below for reference.
+
 First time with the SK-AM62-LP board on hand. Goal was first power-on with the
 prebuilt SD card image per `BOOT_DAY_RUNBOOK.md`. Got the SD card and rootfs
-built, but the AM62 chip never started. Board is almost certainly defective —
-TI E2E post and RMA pending.
+built, but the AM62 chip never started. SD card had wrong files (wrong tiboot3
+variant; macOS partition table likely also rejected by ROM).
 
 ## What got built and works
 
