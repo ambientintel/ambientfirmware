@@ -92,7 +92,7 @@ Current status
  Cross-toolchain verified (aarch64-oe-linux-gcc 13.4)
  Kernel + DTB build succeeded (Image=22MB, k3-am62-lp-sk.dtb=65KB)
  U-Boot compiled (tiboot3.bin, tispl.bin, u-boot.img)
- Git repo pushed to ambientintel/ambientfirmware
+ Git repo pushed to ambientintel/ambientfirm
  Custom DTB build flow validated end-to-end (k3-am62-lp-sk-ambient.dtb)
  IWR6843AOP prototyped on Raspberry Pi via Mistral module
  Path A committed for custom board (raw silicon, TI Altium source)

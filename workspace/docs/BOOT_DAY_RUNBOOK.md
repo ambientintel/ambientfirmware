@@ -1,7 +1,7 @@
 # SK-AM62-LP Boot-Day Runbook
 
 First power-on procedure for the TI SK-AM62-LP evaluation board with firmware
-built from `ambientintel/ambientfirmware`.
+built from `ambientintel/ambientfirm`.
 
 **Target:** TI SK-AM62-LP (AM625 SoC, low-power variant)
 **Host:** Apple Silicon Mac, Docker container (Ubuntu 22.04 x86_64 under QEMU)
