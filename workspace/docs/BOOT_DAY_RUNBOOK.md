@@ -145,16 +145,22 @@ sudo umount /mnt/sdcard-rootfs
 
 ## 3. Hardware setup
 
-1. **Boot mode DIP switch set to SD boot.** SW1 is a push button — the boot mode switches are a separate DIP switch bank. Consult the Quick Start Guide (DLPU091A) for the exact label and bit pattern. Do not guess from memory.
+1. **Set boot mode switches SW3 + SW4 for uSD boot (25 MHz PLL).** SW1 is the RST+INT push button — ignore it. Set the DIP switches as follows (SPRUJ51A Fig 2-5):
+
+   | | sw1 | sw2 | sw3 | sw4 | sw5 | sw6 | sw7 | sw8 |
+   |---|---|---|---|---|---|---|---|---|
+   | **SW3** (bits 0–7) | ON | ON | OFF | OFF | OFF | OFF | ON | OFF |
+   | **SW4** (bits 8–15) | ON | OFF | ON | OFF | OFF | OFF | OFF | OFF |
+
 2. **Insert the SD card** into the microSD slot.
-3. **Connect a micro-USB-B cable** to J15 (XDS110). This provides the UART0 console.
+3. **Connect a micro-USB-B cable to J17** (labeled "FTDI Micro-USB" on the board). This is the FT4232 UART console. J18 is XDS110 JTAG — not the console.
 4. **Do NOT connect power yet.**
 
 ---
 
 ## 4. Open the serial console
 
-On the Mac, with the micro-USB-B cable connected to J15 (XDS110):
+On the Mac, with the micro-USB-B cable connected to J17 (FTDI):
 
 ```bash
 ls /dev/tty.usb*
@@ -185,7 +191,7 @@ Once open: you should see nothing (the board isn't powered yet). That's the corr
 
 ## 5. Power on and watch the boot chain
 
-Connect the 5V power input. Expected boot sequence, in order:
+Connect a USB-C cable to J13 or J15 (5–15V, 3A minimum — use a USB-C PD adapter or laptop port). Expected boot sequence, in order:
 
 ### Stage 1 — ROM → tiboot3 (R5 SPL)
 You should see within ~1 second:
@@ -308,8 +314,10 @@ The `mmcblk1` vs `mmcblk0` thing catches people — eMMC enumerates before SD. O
 ## 8. Quick-reference card (tape to monitor)
 
 ```
-SERIAL:  115200 8N1, /dev/tty.usbmodem*3 (try higher-numbered)
-BOOTMODE: SW1 → SD boot (verify against board QSG)
+SERIAL:  J17 (FTDI Micro-USB), 115200 8N1, /dev/tty.usbmodem* (try higher-numbered)
+JTAG:    J18 (XDS110 Micro-USB)
+POWER:   USB-C into J13 or J15 (5-15V, 3A min)
+BOOTMODE: SW3+SW4 → SD boot: SW3=ON ON OFF OFF OFF OFF ON OFF, SW4=ON OFF ON OFF OFF OFF OFF OFF
 LOGIN:   root / (no password)
 UART:    Linux console = ttyS2
 ROOTFS:  /dev/mmcblk1p2 (SD), p1 is FAT boot
