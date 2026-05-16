@@ -16,9 +16,9 @@ Run through this **before** the board arrives. Every item here can be done dry.
 
 - [ ] Identify an SD card. 8 GB minimum, Class 10 or better. A known-good card matters; flaky SD media is the #1 cause of mysterious boot failures.
 - [ ] Know which host port you'll use for the SD card reader. On a Mac, a USB-C card reader will enumerate as `/dev/disk<N>`. You'll pass this through to Docker or, simpler, burn the SD card from macOS directly.
-- [ ] Have a USB-C cable ready for the serial console (the SK-AM62-LP exposes UART0 over the XDS110 USB debug connector — same cable can power the board in some configs, but use the dedicated 5V barrel/USB-C power input for clean power).
+- [ ] Have a **micro-USB-B** cable ready for the serial console. The SK-AM62-LP XDS110 debug connector (J15) and FT4232 UART bridge (J17) are both micro-USB-B, not USB-C. Use the dedicated power input for clean power.
 - [ ] Install a serial terminal on the Mac: `brew install minicom` or use `screen`. Alternatives: CoolTerm (GUI), `tio`.
-- [ ] Identify the boot-mode switch bank. On SK-AM62-LP this is **SW1** (sometimes silk-screened BOOTMODE). Factory default is typically SD boot — confirm against the board's printed quick-start card when it arrives.
+- [ ] Identify the boot-mode switch bank. **SW1 is a push button** (user/reset button), not the boot mode switches. The boot mode DIP switch bank is labeled separately — confirm the exact label and SD-boot bit pattern against the board's printed Quick Start Guide (DLPU091A) when it arrives.
 - [ ] Print or pin this runbook somewhere you can see it without scrolling while you're doing the first boot.
 
 ---
@@ -145,16 +145,16 @@ sudo umount /mnt/sdcard-rootfs
 
 ## 3. Hardware setup
 
-1. **Boot mode switch (SW1) set to SD boot.** Consult the board's printed quick-start card for the exact bit pattern — do not guess from memory. For AM625 SK boards the SD-boot pattern is typically `ON OFF ON ON ON OFF OFF OFF` (LSB first, but **verify with TI's documentation for the LP variant specifically**).
+1. **Boot mode DIP switch set to SD boot.** SW1 is a push button — the boot mode switches are a separate DIP switch bank. Consult the Quick Start Guide (DLPU091A) for the exact label and bit pattern. Do not guess from memory.
 2. **Insert the SD card** into the microSD slot.
-3. **Connect the USB-C serial/debug cable** to the XDS110 port (usually labeled J18 or similar). This provides the UART0 console.
+3. **Connect a micro-USB-B cable** to J15 (XDS110). This provides the UART0 console.
 4. **Do NOT connect power yet.**
 
 ---
 
 ## 4. Open the serial console
 
-On the Mac, with the USB-C cable connected:
+On the Mac, with the micro-USB-B cable connected to J15 (XDS110):
 
 ```bash
 ls /dev/tty.usb*
