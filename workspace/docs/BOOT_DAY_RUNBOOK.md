@@ -144,20 +144,20 @@ On the Mac, with the micro-USB-B cable connected to J17 (FTDI):
 ```bash
 ls /dev/tty.usbserial-*
 # J17 (FT4232) enumerates as FOUR ports — one per UART channel:
-#   /dev/tty.usbserial-XXXXXXXXXXXX40  — SOC_UART0  ← Linux console, use this
-#   /dev/tty.usbserial-XXXXXXXXXXXX41  — SOC_UART1
-#   /dev/tty.usbserial-XXXXXXXXXXXX42  — WKUP_UART0
-#   /dev/tty.usbserial-XXXXXXXXXXXX43  — MCU_UART0
-# The serial number prefix (12 digits) varies by cable/host.
+#   /dev/tty.usbserial-102612400940  — SOC_UART0  ← Linux console, use this
+#   /dev/tty.usbserial-102612400941  — SOC_UART1
+#   /dev/tty.usbserial-102612400942  — WKUP_UART0
+#   /dev/tty.usbserial-102612400943  — MCU_UART0
+# These are the confirmed port names for this board+cable on this Mac.
 ```
 
-Open the Linux console port (ends in 40):
+Open the Linux console port:
 
 ```bash
-tio /dev/tty.usbserial-XXXXXXXXXXXX40 -b 115200
+tio /dev/tty.usbserial-102612400940 -b 115200
 ```
 
-If port 40 says "No such file or directory", run `ls /dev/tty.usbserial-*` and use the lowest-numbered result.
+If the port isn't found, run `ls /dev/tty.usbserial-*` — the prefix `1026124009` is tied to this FT4232 chip and should be stable across reboots.
 
 Serial settings: **115200 8N1, no flow control.**
 

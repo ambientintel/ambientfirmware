@@ -300,17 +300,17 @@ On the Mac, the FT4232 on J17 enumerates as **four** UART ports:
 
 ```bash
 ls /dev/tty.usbserial-*
-# → /dev/tty.usbserial-XXXXXXXXXXXX40  ← SOC_UART0 — Linux console, use this
-#   /dev/tty.usbserial-XXXXXXXXXXXX41  ← SOC_UART1
-#   /dev/tty.usbserial-XXXXXXXXXXXX42  ← WKUP_UART0
-#   /dev/tty.usbserial-XXXXXXXXXXXX43  ← MCU_UART0
+# → /dev/tty.usbserial-102612400940  ← SOC_UART0 — Linux console, use this
+#   /dev/tty.usbserial-102612400941  ← SOC_UART1
+#   /dev/tty.usbserial-102612400942  ← WKUP_UART0
+#   /dev/tty.usbserial-102612400943  ← MCU_UART0
 # The 12-digit prefix varies per cable and USB hub.
 ```
 
 Open the console port (ends in 40):
 
 ```bash
-tio /dev/tty.usbserial-XXXXXXXXXXXX40 -b 115200
+tio /dev/tty.usbserial-102612400940 -b 115200
 ```
 
 Settings: **115200 8N1, no flow control.** Once open you will see nothing — the
@@ -393,7 +393,7 @@ Capture the full boot log before any future changes:
 
 ```bash
 # Re-connect with logging before next power cycle
-tio /dev/tty.usbserial-XXXXXXXXXXXX40 -b 115200 --log-file first-boot.log
+tio /dev/tty.usbserial-102612400940 -b 115200 --log-file first-boot.log
 ```
 
 Commit `first-boot.log` to the repo as a regression baseline.
