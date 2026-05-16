@@ -55,7 +55,7 @@ file deploy/u-boot.img         # should say "u-boot legacy image"
 
 ## 2. Prepare the SD card
 
-**Recommended: use balenaEtcher + the official LP WIC image.** Do not use macOS `fdisk` to manually partition — macOS fdisk produces unreliable partition tables that the AM62x ROM silently rejects, causing complete boot silence.
+**Use the official LP WIC image.** Do not use macOS `fdisk` to manually partition — macOS fdisk produces unreliable partition tables that the AM62x ROM silently rejects, causing complete boot silence.
 
 ### 2a. Download the LP WIC image
 
@@ -64,18 +64,34 @@ Download the LP-specific image (no TI account required):
 https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-PvdSyIiioq/12.00.00.07.04/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz
 ```
 
-Or via curl:
+Via curl (saves as short alias used by the flash commands below):
 ```bash
 curl -L -o ~/Downloads/tisdk-lp-evm-12.wic.xz \
   "https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-PvdSyIiioq/12.00.00.07.04/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz"
 ```
 
-### 2b. Flash with balenaEtcher
+Browser download saves the full filename (`tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz`) — adjust path in flash commands below if you use the browser.
+
+### 2b. Flash with xz|dd (recommended)
+
+This is the confirmed-working method. balenaEtcher works on most machines but has been observed to fail on this file with "writer process ended unexpectedly" — use dd if that happens.
+
+```bash
+# Verify diskN is your SD card before running — this writes the whole disk
+diskutil list
+diskutil unmountDisk /dev/diskN
+xz -d --stdout ~/Downloads/tisdk-lp-evm-12.wic.xz | sudo dd of=/dev/rdiskN bs=8m
+```
+
+Progress can be checked with `Ctrl-T` (macOS sends SIGINFO to dd). Expect ~5–10 minutes for a 32 GB card.
+
+### 2b-alt. Flash with balenaEtcher
 
 1. Install: `brew install --cask balenaetcher` (use **arm64** build on Apple Silicon)
 2. Open balenaEtcher → Flash from file → select the `.wic.xz` (no need to decompress)
 3. Select the SD card target
 4. Flash
+5. If Etcher shows "writer process ended unexpectedly" — use the `xz|dd` method above instead
 
 ### 2c. Replace boot files with SDK 11.02.08.02 prebuilts (optional)
 
@@ -229,7 +245,7 @@ Commit `first-boot.log` to the repo as a reference for future regressions.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Nothing at all on serial | Wrong UART port | Use port ending in `40` (SOC_UART0) |
-| Nothing at all on serial | macOS fdisk SD card | Re-flash with balenaEtcher + LP WIC image (§2) |
+| Nothing at all on serial | macOS fdisk SD card | Re-flash with `xz\|dd` + LP WIC image (§2b) |
 | Nothing at all on serial | Wrong tiboot3 variant | Use `tiboot3-am62x-hs-fs-evm.bin` for PROC124E2 |
 | Nothing at all on serial | Boot mode switches wrong | Verify SW3/SW4 against SPRUJ51A Fig 2-5 |
 | Nothing at all on serial | Power not applied | Check power LED on board |

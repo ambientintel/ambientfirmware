@@ -92,10 +92,12 @@ First successful boot of the SK-AM62-LP, step by step:
 
 3. Flashed the SDK 12.00.00.07.04 LP WIC image using the `xz | dd` pipeline:
    ```
-   diskutil unmountDisk /dev/disk19
-   xz -d --stdout /Users/brianxbradley/Downloads/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz \
-     | sudo dd of=/dev/rdisk19 bs=8m
+   # diskN = your SD card — verify with `diskutil list` first
+   diskutil unmountDisk /dev/diskN
+   xz -d --stdout ~/Downloads/tisdk-default-image-am62xx-lp-evm-12.00.00.07.04.rootfs.wic.xz \
+     | sudo dd of=/dev/rdiskN bs=8m
    ```
+   If you used curl to download (instead of the browser), the file is named `tisdk-lp-evm-12.wic.xz` — adjust the path accordingly.
    The WIC image is a complete disk image (MBR + FAT32 boot + ext4 rootfs) with the correct HS-FS tiboot3 variant already placed. No manual partitioning needed.
 
 4. Boot switches: SW3 (bits 0–7): sw1, sw2, sw7 ON, rest OFF. SW4 (bits 8–15): sw2 ON only. (Source: SPRUJ51A Fig 2-5. SW1 is a push button, not a DIP switch — do not touch.)
