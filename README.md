@@ -126,8 +126,9 @@ errors:   only benign (RTC erratum i2327, PowerVR GPU firmware missing)
 
 ## Further reading
 
+- `workspace/docs/FIRST_BOOT_TUTORIAL.md` — **start here** — complete end-to-end tutorial from repo clone to logged-in shell, including every failure encountered and why.
+- `workspace/docs/BOOT_DAY_RUNBOOK.md` — concise first-boot procedure and troubleshooting reference.
 - `workspace/CLAUDE.md` — project scope, SDK layout, build conventions, board architecture, open decisions.
 - `workspace/SETUP-NOTES.md` — environment setup, package lists, verified build commands, build times.
-- `workspace/docs/BOOT_DAY_RUNBOOK.md` — first power-on procedure for SK-AM62-LP.
 - `workspace/device-tree/README.md` — custom DT build flow.
 - `docs/vendor/` — TI reference docs pinned to known revisions (SK-AM62-LP EVM user's guide, etc.).
