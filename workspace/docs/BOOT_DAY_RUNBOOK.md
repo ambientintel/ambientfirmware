@@ -333,7 +333,7 @@ Immediate next steps, in order of value:
 
 ## 10. JTAG Debug Loop (Step 14)
 
-Connects the onboard XDS110 (J18) to OpenOCD for hardware breakpoints and register access, even before the OS boots.
+Connects the onboard XDS110 (J18) to OpenOCD for hardware breakpoints and register access. **Verified 2026-05-17** — A53 core 0 halted at EL1H, pc=0xffff800080010a00, caches enabled.
 
 ### Hardware
 
@@ -390,18 +390,30 @@ Info : [am625.cpu.a53.0] Cortex-A53 r0p4 processor detected
 Info : Listening on port 3333 for gdb connections
 ```
 
-### Quick verification (no GDB)
+### Verified attach sequence
+
+**Boot Linux fully first** — TIFS must run to assert DBGEN. Examine fails before Linux is up.
 
 ```bash
-# Second terminal while OpenOCD is running:
-nc localhost 4444
+# nc segfaults on macOS — use telnet:
+telnet localhost 4444
+```
 
-# In the OpenOCD console:
-targets                         # list targets and state
-am625.cpu.a53.0 halt            # halt core 0
-am625.cpu.a53.0 reg pc          # read PC
-mdw 0x88000000 4                # DTB magic check: first word = 0xedfe0dd0
-am625.cpu.a53.0 resume
+At the `>` prompt, one at a time:
+
+```bash
+targets                          # all show "examine deferred" — expected
+
+am625.cpu.a53.0 arp_examine      # works only after Linux has booted
+# → hardware has 6 breakpoints, 4 watchpoints
+
+am625.cpu.a53.0 arp_halt
+# → halted in AArch64 state due to debug-request, current mode: EL1H
+# → cpsr: 0xa00003c5 pc: 0xffff800080010a00
+# → MMU: enabled, D-Cache: enabled, I-Cache: enabled
+
+targets am625.cpu.a53.0
+resume
 ```
 
 ### GDB (kernel debug, from Docker container)
@@ -416,8 +428,10 @@ aarch64-oe-linux-gdb vmlinux -x /workspace/jtag/gdb-kernel.init
 
 ### Critical notes
 
-- Interface: `interface/xds110.cfg` — **not** `interface/ti_xds110.cfg` (old name, doesn't exist in 0.12.0)
-- Target: `ti_k3.cfg` with `set SOC am625` — **not** `ti_am625.cfg` (AM625 is K3 family)
+- `transport select jtag` required — XDS110 auto-selects SWD which disconnects immediately on AM625
+- Interface: `interface/xds110.cfg` — **not** `interface/ti_xds110.cfg` (old name)
+- Target: `ti_k3.cfg` with `set SOC am625` — **not** `ti_am625.cfg`
+- Do NOT put `init_board` in the cfg file — it runs before `init` completes and segfaults
 - Port 3333 = sysctrl (M3), **3334 = a53.0** (kernel debug), 3338 = main0_r5.0 (R5F)
 - See `workspace/jtag/README.md` for full port map and debug use cases
 

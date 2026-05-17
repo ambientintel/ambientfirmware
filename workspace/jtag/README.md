@@ -43,21 +43,33 @@ Info : [am625.cpu.a53.3] Cortex-A53 r0p4 processor detected
 Info : Listening on port 3333 for gdb connections
 ```
 
-## Quick verification (no GDB needed)
+## Verified attach sequence (confirmed 2026-05-17)
+
+**Boot Linux fully before running these steps.** TIFS must run during boot to assert DBGEN and open debug ports. Examine will fail before Linux is up.
 
 ```sh
-# In a second terminal, while OpenOCD is running:
-nc localhost 4444
+# nc segfaults on macOS — use telnet:
+telnet localhost 4444
+```
 
-# In the telnet console:
-targets                         # list all targets and state
-am625.cpu.a53.0 halt            # halt core 0
-am625.cpu.a53.0 reg pc          # read program counter
-am625.cpu.a53.0 resume          # resume
+At the `>` prompt, one command at a time:
 
-# Read 10 words at DTB load address (typical 0x88000000)
-am625.cpu.a53.0 halt
-mdw 0x88000000 10
+```sh
+# 1. List targets — all show "examine deferred" initially
+targets
+
+# 2. Examine A53 core 0 (only works after Linux has booted)
+am625.cpu.a53.0 arp_examine
+# → am625.cpu.a53.0: hardware has 6 breakpoints, 4 watchpoints
+
+# 3. Halt
+am625.cpu.a53.0 arp_halt
+# → halted in AArch64 state due to debug-request, current mode: EL1H
+# → cpsr: 0xa00003c5 pc: 0xffff800080010a00
+# → MMU: enabled, D-Cache: enabled, I-Cache: enabled
+
+# 4. Resume
+targets am625.cpu.a53.0
 resume
 ```
 
