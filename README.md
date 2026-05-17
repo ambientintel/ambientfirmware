@@ -24,6 +24,21 @@ subject data, no PII. Radar and sensor data handling live in other repos.
 - Build outputs (kernel `Image`, DTBs, U-Boot artifacts, `.o`, `build/`). See `.gitignore`.
 - Firmware source for the A53 apps or radar. Different repos.
 
+## Application layer
+
+The sensor application runs on top of this firmware. It lives in a separate repo:
+
+**[ambientintel/ambientapp](https://github.com/ambientintel/ambientapp)** — fall detection + activity service. Python 3.11 under systemd. Reads IWR6843AOP over UART, parses TLV frames, detects falls and presence events, publishes upstream.
+
+The app is not yet deployed to the board. Prerequisites before deployment:
+
+1. IWR6843AOP UART driver working in the kernel (Step 16 in the bring-up sequence)
+2. Radar boot mode locked (Step 17)
+3. Python 3.11+ on the rootfs
+4. ambientapp changes complete — see that repo for current status
+
+Once prerequisites are met, install with `bash deploy/install.sh` from the ambientapp repo, then `systemctl start ambient`. Logs via `journalctl -u ambient -f`.
+
 ## Prerequisites
 
 - Apple Silicon Mac (tested) or any Docker host that can run `linux/amd64` images. On Apple Silicon this runs under QEMU emulation and is 3–5× slower than native x86.
