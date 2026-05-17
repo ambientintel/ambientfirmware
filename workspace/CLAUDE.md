@@ -140,7 +140,7 @@ AM62 island (OSD62x-PM + support components, our design work):
 Octavo OSD62x-PM (OSD6254-1G-IPM) — AM6254 + 1GB DDR4 + passives in 9×14 mm, 500-ball, 0.5 mm pitch BGA
 TPS65219 PMIC with AM62 pre-programmed NVM OPN (exact OPN per Octavo power app note)
 OSPI or QSPI boot flash
-eMMC (size TBD, awaiting OTA partitioning decision)
+128 GB eMMC — Kingston EMMC128G-IT3 or Micron MTFC128GAYABN (industrial pSLC, -40°C to +85°C). On MMC1. Mender layout: boot 512 MB (FAT32) | rootfs-A 4 GB (ext4) | rootfs-B 4 GB (ext4) | data 120 GB (ext4, /data). Radar parquet files write to /data/radar/YYYY/MM/DD/HH/ at 15-min S3 upload cadence; local copy retained 30 days. Daily write: 1.3–2.6 GB/day. Data partition capacity: 46–92 days before rotation.
 25 MHz main crystal for MCU_OSC0 + load caps
 32.768 kHz RTC crystal for WKUP_LFOSC0 + load caps
 Reset supervisor (TPS3839 class) + SYSBOOT strap resistors
@@ -200,6 +200,8 @@ Closed decisions (see ADRs)
 - Cloud transport: AWS IoT Core MQTT + X.509 cert auth; no boto3 on device. Device-cloud wire format defined in ambientcloud/docs/device-cloud-contract.md v0.2 (2026-04-18). Rootfs must include: aws-iot-sdk-python-v2, pyarrow, requests, requests-aws4auth.
 - Radar boot mode: autonomous QSPI (2026-05-17). QSPI flash on radar island BOM confirmed. EE fab order unblocked.
 - EVT power supply: Cincon TR15RAM-12, 12V/1.1A barrel jack, IEC/EN/UL 60601-1 Ed 3.2 (2026-05-17). PCB input: 5.5mm/2.1mm barrel jack, 12V. Datasheet: workspace/docs/datasheets/Datasheet-TR15RAM-series.pdf.
+- eMMC size and storage strategy (2026-05-17): 128 GB industrial pSLC. SD card slot EVT-only (DNP at DVT, removed at PVT). Parquet write path: /data/radar/YYYY/MM/DD/HH/. Upload cadence: every 15 min to S3. Local copy retained 30 days. Factory programming via USB DFU (DVT+).
+- App data retention: 30+ days local backup required (clinical research). 120 GB data partition holds 46–92 days at full UART throughput.
 
 Radar workload shape (as of this writing)
 Firmware option: potentially TI OOB demo / mmWave SDK / custom — still evaluating
