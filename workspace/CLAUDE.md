@@ -174,16 +174,13 @@ Mechanical: AoP antenna keepout is absolute and 3-dimensional — applies to PCB
 Open decisions
 Listed in priority order. Each blocks work downstream.
 
-1. Radar boot mode
-Autonomous QSPI (TI default): radar boots from its own flash, AM62 talks to it post-boot. Two OTA targets to manage.
+1. CLOSED — Radar boot mode (2026-05-17)
+Autonomous QSPI chosen. Radar boots from its own QSPI flash; AM62 sends UART config post-boot. Two OTA targets to manage. QSPI flash IS present on radar island BOM. EE fab order unblocked on this point.
 
-Host-fed from AM62 over SPI: radar omits QSPI flash, AM62 pushes image on reset release. Single source of truth for radar firmware. Radar can't start until AM62 has booted far enough to feed it.
+2. CLOSED — EVT power supply (2026-05-17)
+Cincon TR15RAM-12 (12V/1.1A, IEC/EN/UL 60601-1 Ed 3.2) chosen by EI Microcircuits (manufacturer recommendation). 5.5mm/2.1mm barrel jack on PCB, 12V nominal input to on-board DC-DC rails. No PoE PD circuit on EVT. PoE+ (802.3at) deferred to DVT if deployment channel is SNF/hospital. Datasheet stored at workspace/docs/datasheets/Datasheet-TR15RAM-series.pdf.
 
-Decision affects the radar island BOM (QSPI present or not) and the OTA architecture. Lean toward host-fed for deployed product, but needs to be locked before schematic capture on the radar island completes.
-
-Cross-domain dependency: this is the one firmware decision that blocks EE. EE cannot finalize the radar island BOM or place the fab order until this is closed. All other engineering domains (EE schematic work outside the radar island, mechanical, cloud, ambientapp) can proceed in parallel with firmware Steps 14–17.
-
-2. BOM — one remaining open question
+3. BOM — one remaining open question
 Connectivity (physical layer): wired Ethernet / Wi-Fi / BLE / cellular mix. Drives schematic, antenna count, certification scope. Current next task: Wi-Fi/BLE module driver maturity check in TI SDK source. Note: cloud transport is decided (AWS IoT Core MQTT — see closed decisions) but that decision is independent of the physical link layer.
 
 Fleet management: AWS IoT Core handles the MQTT broker and per-device publish policy; ambientcloud-admin handles device provisioning and retirement. Scale model for >30 devices is not yet validated in pilot.
@@ -201,6 +198,8 @@ Closed decisions (see ADRs)
 - OTA: Mender self-hosted (ADR-0003, 2026-05-15).
 - App runtime: Python 3.11, single systemd service (ambientapp — ambientintel/ambientapp, 2026-05-16).
 - Cloud transport: AWS IoT Core MQTT + X.509 cert auth; no boto3 on device. Device-cloud wire format defined in ambientcloud/docs/device-cloud-contract.md v0.2 (2026-04-18). Rootfs must include: aws-iot-sdk-python-v2, pyarrow, requests, requests-aws4auth.
+- Radar boot mode: autonomous QSPI (2026-05-17). QSPI flash on radar island BOM confirmed. EE fab order unblocked.
+- EVT power supply: Cincon TR15RAM-12, 12V/1.1A barrel jack, IEC/EN/UL 60601-1 Ed 3.2 (2026-05-17). PCB input: 5.5mm/2.1mm barrel jack, 12V. Datasheet: workspace/docs/datasheets/Datasheet-TR15RAM-series.pdf.
 
 Radar workload shape (as of this writing)
 Firmware option: potentially TI OOB demo / mmWave SDK / custom — still evaluating
