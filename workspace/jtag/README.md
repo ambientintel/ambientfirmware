@@ -16,6 +16,7 @@ Power the board first (USB-C into J13), then plug J18. J18 enumerates as a Texas
 ### Stage 2 — JTAG + console (kernel debug)
 
 Add J17 when you need serial console output alongside JTAG (panic traces, printk, interactive U-Boot).
+J18 is only needed during active JTAG sessions — unplug it for Steps 15–17 (TFTP/NFS, driver work).
 
 | Cable | Connector | Purpose |
 |-------|-----------|---------|
