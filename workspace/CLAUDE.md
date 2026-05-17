@@ -260,26 +260,25 @@ First boot achieved 2026-05-15 with SDK 12.x WIC image (kernel 6.18.13-ti). ADR-
 
 Lesson (2026-05-16): Complete UART silence after replacing boot files was caused by micro-USB cable in J18 (XDS110 JTAG) instead of J17 (FT4232 UART). Both connectors are micro-USB-B and look identical. Always verify J17 before assuming boot failure. Added to RUNBOOK §A and §3.
 
-JTAG / OpenOCD setup (Step 14, in progress)
-OpenOCD 0.12.0 installed on the Mac host (brew install openocd). Board config at workspace/jtag/am625-xds110.cfg. Key findings vs. the step placeholder:
-- Interface file is interface/xds110.cfg — NOT interface/ti_xds110.cfg (old name, does not exist in 0.12.0)
-- Target file is ti_k3.cfg with set SOC am625 — NOT ti_am625.cfg (does not exist; AM625 is K3 family)
-- AM625 TAP ID 0x0bb7e02f correctly identified in ti_k3.cfg
-- GDB port map: 3333=sysctrl, 3334=a53.0 (kernel debug target), 3335-7=a53.1-3, 3338=main0_r5.0, 3339=gp_mcu
-- OpenOCD runs on Mac host; Docker container reaches it at host.docker.internal:3334
-- Quick verification: nc localhost 4444 → am625.cpu.a53.0 halt → am625.cpu.a53.0 reg pc → resume
-- GDB: use aarch64-oe-linux-gdb from inside container (after sourcing kernel-env.sh); NOT macOS gdb
-
-JTAG verified 2026-05-17. A53 core 0 halted at EL1H, pc=0xffff800080010a00, MMU+caches enabled.
+JTAG / OpenOCD setup (Step 14, done 2026-05-17)
+OpenOCD 0.12.0 installed on the Mac host (brew install openocd). Board config at workspace/jtag/am625-xds110.cfg.
+A53 core 0 halted at EL1H, pc=0xffff800080010a00, MMU+caches enabled. Confirmed working.
 
 Verified attach sequence:
-1. Boot Linux fully (wait for login prompt on tio)
+1. Boot Linux fully (wait for login prompt on tio) — TIFS must run to assert DBGEN
 2. openocd -f workspace/jtag/am625-xds110.cfg
 3. telnet localhost 4444  (nc segfaults on macOS)
-4. am625.cpu.a53.0 arp_examine  (only works after Linux boot — TIFS must run first)
+4. am625.cpu.a53.0 arp_examine  (only works after Linux boot)
 5. am625.cpu.a53.0 arp_halt
 6. targets am625.cpu.a53.0 → resume
 
-Config gotchas: transport select jtag required; do NOT put init_board in cfg; interface/xds110.cfg not ti_xds110.cfg; ti_k3.cfg with set SOC am625.
+Config gotchas (permanent):
+- transport select jtag required — XDS110 auto-selects SWD, disconnects immediately on AM625
+- Do NOT put init_board in cfg — segfaults before init completes
+- Interface: interface/xds110.cfg NOT ti_xds110.cfg (old name, doesn't exist in 0.12.0)
+- Target: ti_k3.cfg with set SOC am625 NOT ti_am625.cfg
+- GDB port map: 3333=sysctrl, 3334=a53.0 (kernel debug target), 3335-7=a53.1-3, 3338=main0_r5.0, 3339=gp_mcu
+- OpenOCD runs on Mac host; Docker container reaches it at host.docker.internal:3334
+- GDB: use aarch64-oe-linux-gdb from inside container (after sourcing kernel-env.sh); NOT macOS gdb
 
 Next task: Step 15 — TFTP/NFS dev loop.
