@@ -337,7 +337,36 @@ Connects the onboard XDS110 (J18) to OpenOCD for hardware breakpoints and regist
 
 ### Hardware
 
-Connect J17 (UART) **and** J18 (JTAG) simultaneously. Both are micro-USB-B — J18 is the one closer to the board edge (away from SD card slot). Power board first, then plug J18. J18 will enumerate as a Texas Instruments USB device; no `/dev/tty` entry appears.
+J17 (UART) and J18 (JTAG) are independent. Connect only what the task requires.
+
+**Stage 1 — JTAG verification only (minimum cables)**
+
+J17 is **not needed** to run OpenOCD and confirm A53 detection.
+
+| Cable | Connector | Purpose |
+|-------|-----------|---------|
+| USB-C | J13 | Power |
+| micro-USB-B | J18 | XDS110 JTAG |
+
+Power the board first (USB-C into J13), then plug J18. J18 enumerates as a Texas Instruments USB device — **no `/dev/tty` entry appears** for J18. Both J17 and J18 are micro-USB-B and look identical.
+
+**Stage 2 — JTAG + console (kernel debug)**
+
+Add J17 when you need serial output alongside JTAG: panic traces, printk, interactive U-Boot.
+
+| Cable | Connector | Purpose |
+|-------|-----------|---------|
+| USB-C | J13 | Power |
+| micro-USB-B | J17 | FT4232 UART → 4× `/dev/tty.usbserial-*` |
+| micro-USB-B | J18 | XDS110 JTAG |
+
+```bash
+# Terminal A — console
+tio /dev/tty.usbserial-102612400940 -b 115200
+
+# Terminal B — JTAG
+openocd -f workspace/jtag/am625-xds110.cfg
+```
 
 ### Install OpenOCD (Mac, once)
 

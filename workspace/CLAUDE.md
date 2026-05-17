@@ -270,6 +270,6 @@ OpenOCD 0.12.0 installed on the Mac host (brew install openocd). Board config at
 - Quick verification: nc localhost 4444 → am625.cpu.a53.0 halt → am625.cpu.a53.0 reg pc → resume
 - GDB: use aarch64-oe-linux-gdb from inside container (after sourcing kernel-env.sh); NOT macOS gdb
 
-Hardware connection: J17 (UART) + J18 (JTAG) simultaneously. Power board first, then plug J18. J18 enumerates as TI USB device — no /dev/tty entry.
+Hardware connection: J17 and J18 are independent. For JTAG verification only: USB-C (J13) + J18 — J17 not needed. For JTAG + console: USB-C (J13) + J17 + J18. Power board before plugging J18. J18 enumerates as TI USB device — no /dev/tty entry.
 
 Next task: verify JTAG link with board connected (run openocd -f workspace/jtag/am625-xds110.cfg, confirm A53 core detection), then TFTP/NFS dev loop (Step 15).

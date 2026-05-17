@@ -1,13 +1,29 @@
 # JTAG Quick Reference — SK-AM62-LP + XDS110
 
-## Hardware
+## Hardware connections
 
-- J17 (FT4232, micro-USB-B) → UART console — keep connected
-- J18 (XDS110, micro-USB-B) → JTAG — second USB cable
-- Power board first via J13 (USB-C), then plug J18
+### Stage 1 — JTAG verification only (minimum cables)
 
-The two ports look identical. J17 produces 4 `/dev/tty.usbserial-*` entries.
-J18 enumerates as a Texas Instruments USB device (no tty).
+J17 is **not required** to run OpenOCD and verify A53 detection.
+
+| Cable | Connector | Purpose |
+|-------|-----------|---------|
+| USB-C | J13 | Power |
+| micro-USB-B | J18 | XDS110 JTAG |
+
+Power the board first (USB-C into J13), then plug J18. J18 enumerates as a Texas Instruments USB device — **no `/dev/tty` entry appears** for J18.
+
+### Stage 2 — JTAG + console (kernel debug)
+
+Add J17 when you need serial console output alongside JTAG (panic traces, printk, interactive U-Boot).
+
+| Cable | Connector | Purpose |
+|-------|-----------|---------|
+| USB-C | J13 | Power |
+| micro-USB-B | J17 | FT4232 UART → 4× `/dev/tty.usbserial-*` |
+| micro-USB-B | J18 | XDS110 JTAG |
+
+Both J17 and J18 are micro-USB-B and look identical. J17 produces tty entries; J18 does not.
 
 ## Start OpenOCD (on Mac, outside Docker)
 
