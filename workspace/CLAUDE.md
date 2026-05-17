@@ -181,6 +181,8 @@ Host-fed from AM62 over SPI: radar omits QSPI flash, AM62 pushes image on reset 
 
 Decision affects the radar island BOM (QSPI present or not) and the OTA architecture. Lean toward host-fed for deployed product, but needs to be locked before schematic capture on the radar island completes.
 
+Cross-domain dependency: this is the one firmware decision that blocks EE. EE cannot finalize the radar island BOM or place the fab order until this is closed. All other engineering domains (EE schematic work outside the radar island, mechanical, cloud, ambientapp) can proceed in parallel with firmware Steps 14–17.
+
 2. BOM — one remaining open question
 Connectivity (physical layer): wired Ethernet / Wi-Fi / BLE / cellular mix. Drives schematic, antenna count, certification scope. Current next task: Wi-Fi/BLE module driver maturity check in TI SDK source. Note: cloud transport is decided (AWS IoT Core MQTT — see closed decisions) but that decision is independent of the physical link layer.
 
