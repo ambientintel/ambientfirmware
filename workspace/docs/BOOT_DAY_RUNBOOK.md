@@ -329,4 +329,69 @@ Immediate next steps, in order of value:
 
 ---
 
+---
+
+## 10. JTAG Debug Loop (Step 14)
+
+Connects the onboard XDS110 (J18) to OpenOCD for hardware breakpoints and register access, even before the OS boots.
+
+### Hardware
+
+Connect J17 (UART) **and** J18 (JTAG) simultaneously. Both are micro-USB-B — J18 is the one closer to the board edge (away from SD card slot). Power board first, then plug J18. J18 will enumerate as a Texas Instruments USB device; no `/dev/tty` entry appears.
+
+### Install OpenOCD (Mac, once)
+
+```bash
+brew install openocd   # → 0.12.0
+```
+
+### Start OpenOCD
+
+```bash
+# From the ambientfirmware/ repo root:
+openocd -f workspace/jtag/am625-xds110.cfg
+```
+
+Expected output:
+```
+Info : XDS110: connected
+Info : XDS110: firmware version ...
+Info : [am625.cpu.a53.0] Cortex-A53 r0p4 processor detected
+...
+Info : Listening on port 3333 for gdb connections
+```
+
+### Quick verification (no GDB)
+
+```bash
+# Second terminal while OpenOCD is running:
+nc localhost 4444
+
+# In the OpenOCD console:
+targets                         # list targets and state
+am625.cpu.a53.0 halt            # halt core 0
+am625.cpu.a53.0 reg pc          # read PC
+mdw 0x88000000 4                # DTB magic check: first word = 0xedfe0dd0
+am625.cpu.a53.0 resume
+```
+
+### GDB (kernel debug, from Docker container)
+
+Port 3334 = `am625.cpu.a53.0` (first A53 — kernel debug target).
+Container reaches Mac host at `host.docker.internal`.
+
+```bash
+source /workspace/sdk/ti-processor-sdk-linux-am62xx-evm/kernel-env.sh
+aarch64-oe-linux-gdb vmlinux -x /workspace/jtag/gdb-kernel.init
+```
+
+### Critical notes
+
+- Interface: `interface/xds110.cfg` — **not** `interface/ti_xds110.cfg` (old name, doesn't exist in 0.12.0)
+- Target: `ti_k3.cfg` with `set SOC am625` — **not** `ti_am625.cfg` (AM625 is K3 family)
+- Port 3333 = sysctrl (M3), **3334 = a53.0** (kernel debug), 3338 = main0_r5.0 (R5F)
+- See `workspace/jtag/README.md` for full port map and debug use cases
+
+---
+
 *This runbook is a living document. Every surprise on first boot should either be resolved by following it, or result in an edit to it.*

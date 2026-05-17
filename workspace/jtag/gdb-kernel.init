@@ -1,0 +1,25 @@
+# GDB init script for AM625 kernel debugging via OpenOCD
+# Usage (inside Docker container, with OpenOCD running on Mac):
+#   aarch64-oe-linux-gdb vmlinux -x /workspace/jtag/gdb-kernel.init
+#
+# OpenOCD runs on the Mac host; container reaches it at host.docker.internal.
+# Port 3334 = am625.cpu.a53.0 (first A53 core — use this for kernel debug).
+
+set pagination off
+set confirm off
+
+# Connect to OpenOCD GDB server for A53 core 0
+# From inside Docker container, use host.docker.internal instead of localhost
+target extended-remote host.docker.internal:3334
+
+echo "Connected to OpenOCD. Board is running."
+echo "Commands:"
+echo "  monitor halt          -- halt all A53 cores"
+echo "  monitor resume        -- resume"
+echo "  monitor targets       -- list targets and state"
+echo "  info registers        -- dump A53 registers"
+echo "  hbreak start_kernel   -- set hardware breakpoint at kernel entry"
+echo "  hbreak <function>     -- set hardware breakpoint (use when kernel has debug symbols)"
+echo ""
+echo "To inspect DTB in memory:"
+echo "  monitor mdw 0x88000000 10   -- read 10 words at typical DTB load address"

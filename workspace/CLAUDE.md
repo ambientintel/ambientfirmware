@@ -260,4 +260,16 @@ First boot achieved 2026-05-15 with SDK 12.x WIC image (kernel 6.18.13-ti). ADR-
 
 Lesson (2026-05-16): Complete UART silence after replacing boot files was caused by micro-USB cable in J18 (XDS110 JTAG) instead of J17 (FT4232 UART). Both connectors are micro-USB-B and look identical. Always verify J17 before assuming boot failure. Added to RUNBOOK §A and §3.
 
-Next task: TFTP/NFS dev loop (Step 15).
+JTAG / OpenOCD setup (Step 14, in progress)
+OpenOCD 0.12.0 installed on the Mac host (brew install openocd). Board config at workspace/jtag/am625-xds110.cfg. Key findings vs. the step placeholder:
+- Interface file is interface/xds110.cfg — NOT interface/ti_xds110.cfg (old name, does not exist in 0.12.0)
+- Target file is ti_k3.cfg with set SOC am625 — NOT ti_am625.cfg (does not exist; AM625 is K3 family)
+- AM625 TAP ID 0x0bb7e02f correctly identified in ti_k3.cfg
+- GDB port map: 3333=sysctrl, 3334=a53.0 (kernel debug target), 3335-7=a53.1-3, 3338=main0_r5.0, 3339=gp_mcu
+- OpenOCD runs on Mac host; Docker container reaches it at host.docker.internal:3334
+- Quick verification: nc localhost 4444 → am625.cpu.a53.0 halt → am625.cpu.a53.0 reg pc → resume
+- GDB: use aarch64-oe-linux-gdb from inside container (after sourcing kernel-env.sh); NOT macOS gdb
+
+Hardware connection: J17 (UART) + J18 (JTAG) simultaneously. Power board first, then plug J18. J18 enumerates as TI USB device — no /dev/tty entry.
+
+Next task: verify JTAG link with board connected (run openocd -f workspace/jtag/am625-xds110.cfg, confirm A53 core detection), then TFTP/NFS dev loop (Step 15).
