@@ -73,7 +73,7 @@ source /workspace/sdk/ti-processor-sdk-linux-am62xx-evm/kernel-env.sh
 cd /workspace/device-tree
 make build KERNEL_SRC=$KERNEL_SRC
 # produces $KERNEL_SRC/arch/arm64/boot/dts/ti/k3-am62-lp-sk-ambient.dtb
-Stock k3-am62-lp-sk.dtb remains the boot default. Ambient DTB gets selected via fdtfile env var or extlinux.conf once we're ready to switch.
+Ambient DTB confirmed booting: copy `k3-am62-lp-sk-ambient.dtb` to the BOOT FAT partition root, then reference it as `devicetree /k3-am62-lp-sk-ambient.dtb` in `EFI/BOOT/grub.cfg`. The `fdtfile` variable in `uEnv.txt` has no effect in this GRUB EFI boot path — GRUB's `devicetree` directive controls the DTB, not U-Boot. GRUB silently falls back to the U-Boot-loaded DTB if the file is not found, so the DTB file must be present on the FAT partition.
 
 Note on DTB for custom board: the OSD62x-PM integrates AM6254 in the AMC package with its own LPDDR4 config. The production DTB will need the OSD62x-PM DDR device-tree configuration from Octavo (github.com/octavosystems/osd62-pm-ddr), not the SK-AM62-LP DDR settings. This is a separate DTB artifact from the SK-AM62-LP dev overlay.
 
@@ -101,6 +101,7 @@ Current status
  First boot with prebuilt SD card image (SDK 12.x WIC, kernel 6.18.13-ti, 2026-05-15)
  OTA decision: Mender self-hosted (ADR-0003, 2026-05-15)
  First boot with custom kernel (SDK 11.x prebuilt, kernel 6.12.57-ti, 2026-05-16)
+ Ambient DTB booted (k3-am62-lp-sk-ambient.dtb, model="Ambient Intel AM62x-LP", 2026-05-16)
  TFTP/NFS dev loop set up
  Radar boot mode decision (see Open decisions)
  Connectivity / runtime decisions (see Open decisions)
@@ -240,6 +241,9 @@ The SK-AM62-LP dev board uses AM625-Q1 or AM620-Q1 in the AMC package. The custo
 
 Octavo SiP naming — "-PM" means "processor module," not "fully integrated"
 The OSD62x-PM integrates AM62 + LPDDR4 + passives only. PMIC, oscillators, boot flash, and decoupling are still on the carrier board. The fully-integrated sibling (OSD62x, Beta as of 2026-04-18) adds PMIC + EEPROM + oscillators but is not production-qualified. Don't confuse the two when referencing Octavo documentation or Digi-Key part numbers.
+
+GRUB EFI DTB path — devicetree directive, not fdtfile
+In this board's boot chain (U-Boot → GRUB EFI → kernel), the DTB passed to the kernel is controlled by GRUB's `devicetree` directive in `EFI/BOOT/grub.cfg`, not by `fdtfile` in `uEnv.txt`. The `fdtfile` variable is read by U-Boot's distro boot scripts, which are not executed in the EFI handoff path. GRUB silently falls back to whatever DTB U-Boot already loaded in memory if the specified file is not found — no error, no warning, boot continues with the stock DTB. Always verify the DTB file physically exists at the specified path on the BOOT FAT partition before rebooting.
 
 Session conventions
 Concise, no re-explaining established context

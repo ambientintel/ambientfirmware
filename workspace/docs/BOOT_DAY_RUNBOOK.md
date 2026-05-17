@@ -225,7 +225,7 @@ am62xx-evm login:
 First boot is "working" when **all** of these are true:
 - [ ] Login prompt appears on UART0.
 - [ ] `uname -a` shows your built kernel version.
-- [ ] `cat /proc/device-tree/model` returns the SK-AM62-LP string.
+- [ ] `cat /proc/device-tree/model` returns `Ambient Intel AM62x-LP` (ambient DTB) or `Texas Instruments AM62x LP SK` (stock DTB).
 - [ ] `dmesg | grep -i error` returns nothing alarming (a few benign warnings about unsupported peripherals are normal).
 - [ ] `ls /sys/class/net` shows at least `lo` and `eth0`.
 
@@ -283,7 +283,17 @@ Rebuild the full boot chain cleanly and try again before digging deeper.
 
 The `mmcblk1` vs `mmcblk0` thing catches people — eMMC enumerates before SD. On SK boards with no eMMC populated, SD may be `mmcblk0`. Check `ls /dev/mmcblk*` from a U-Boot shell (`mmc list`) if unsure.
 
-### §E. "It booted once, now it won't"
+### §E. Wrong or stock DTB despite grub.cfg devicetree directive
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `cat /proc/device-tree/model` shows stock TI string | DTB file not present on BOOT FAT partition | Copy the DTB to the BOOT partition root; verify path matches grub.cfg exactly |
+| `devicetree /name.dtb` in grub.cfg; stock model persists | GRUB silently fell back — file not found | `ls /run/media/boot-mmcblk1p1/` to confirm the file exists |
+| Changed `fdtfile` in uEnv.txt; no effect | `fdtfile` only applies to U-Boot distro boot, not GRUB EFI path | Use grub.cfg `devicetree` directive instead |
+
+**How ambient DTB boot works on this board:** `EFI/BOOT/grub.cfg` must contain `devicetree /k3-am62-lp-sk-ambient.dtb` AND the file must exist at the root of the FAT BOOT partition. GRUB passes it to the kernel. U-Boot's `fdtfile` variable in `uEnv.txt` is irrelevant in this boot path.
+
+### §F. "It booted once, now it won't"
 
 - Card may have corrupted on power-off. Re-burn.
 - Did U-Boot save an environment to the card? `env default -a; env save` from U-Boot prompt clears it.
