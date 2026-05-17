@@ -281,4 +281,16 @@ Config gotchas (permanent):
 - OpenOCD runs on Mac host; Docker container reaches it at host.docker.internal:3334
 - GDB: use aarch64-oe-linux-gdb from inside container (after sourcing kernel-env.sh); NOT macOS gdb
 
-Next task: Step 15 — TFTP/NFS dev loop.
+Next task: Step 15 (TFTP/NFS dev loop) — BLOCKED pending Ethernet cable + USB-C adapter arrival.
+Proceeding with Step 16 (IWR6843AOP interface prep) in parallel — see firmware page phase '11b'.
+
+Step 16 is NOT a kernel driver patch. It is:
+- A: Verify UART device node (/dev/ttyS1) accepts 921600 baud; install pyserial
+- B: GPIO DTS nodes for NRESET, SOP[2:0], NERROR_OUT (pin numbers from OSD62x-PM ball map)
+- C: Add radar/gpio.py to ambientapp (gpiod-based NRESET/SOP control)
+- D: ambientapp deployment dry run on Arago rootfs (expect UART timeout, not crash)
+- E: SPI node — blocked on Step 17 boot mode decision
+
+Step 17 DECISION NEEDED — blocks EE fab order. Recommendation: autonomous QSPI.
+Autonomous QSPI: radar boots from own flash, AM62 sends UART config post-boot, Mender handles updates.
+Host-fed SPI: no QSPI flash, AM62 pushes firmware over SPI — requires radar/boot.py (not written).
