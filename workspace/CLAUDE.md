@@ -104,7 +104,9 @@ Current status
  Ambient DTB booted (k3-am62-lp-sk-ambient.dtb, model="Ambient Intel AM62x-LP", 2026-05-16)
  TFTP/NFS dev loop set up
  Radar boot mode decision (see Open decisions)
- Connectivity / runtime decisions (see Open decisions)
+ Physical connectivity (Wi-Fi/Ethernet/cellular) still open (see Open decisions)
+ App runtime: Python 3.11 — closed
+ Cloud transport: AWS IoT Core MQTT + X.509 — closed
  Rootfs decision (deferred until BOM stabilizes)
  Pin mux spreadsheet against OSD62x-PM ball map
 Custom board architecture
@@ -179,14 +181,12 @@ Host-fed from AM62 over SPI: radar omits QSPI flash, AM62 pushes image on reset 
 
 Decision affects the radar island BOM (QSPI present or not) and the OTA architecture. Lean toward host-fed for deployed product, but needs to be locked before schematic capture on the radar island completes.
 
-2. BOM — three unanswered questions
-Connectivity: wired Ethernet / Wi-Fi / BLE / cellular mix. Drives schematic, antenna count, certification scope. Current next task: Wi-Fi/BLE module driver maturity check in TI SDK source.
+2. BOM — one remaining open question
+Connectivity (physical layer): wired Ethernet / Wi-Fi / BLE / cellular mix. Drives schematic, antenna count, certification scope. Current next task: Wi-Fi/BLE module driver maturity check in TI SDK source. Note: cloud transport is decided (AWS IoT Core MQTT — see closed decisions) but that decision is independent of the physical link layer.
 
-App runtime: native binary / Python / containers / Node. Drives rootfs and filesystem size.
+Fleet management: AWS IoT Core handles the MQTT broker and per-device publish policy; ambientcloud-admin handles device provisioning and retirement. Scale model for >30 devices is not yet validated in pilot.
 
-OTA strategy: A/B partitions / delta updates / container pull / full image. Drives partition layout, bootloader config, update infrastructure.
-
-Implicit fourth question: fleet management (how many devices, SSH vs agent, observability).
+(App runtime, OTA strategy, and cloud transport are now closed — see closed decisions below.)
 
 3. Rootfs (Buildroot / trimmed Yocto / tisdk default)
 Deferred. Honest framing: with ML target, model shape, and update strategy all open, picking a minimal production rootfs now would actively get in the way of the research the rootfs is supposed to support.
@@ -197,6 +197,8 @@ Closed decisions (see ADRs)
 - Custom board path: raw silicon (Path A), TI Altium source (implicit ADR-0001)
 - AM62 SoC: Octavo OSD62x-PM (ADR-0002, 2026-04-18). Supersedes "AM62 vs AM62A" open decision.
 - OTA: Mender self-hosted (ADR-0003, 2026-05-15).
+- App runtime: Python 3.11, single systemd service (ambientapp — ambientintel/ambientapp, 2026-05-16).
+- Cloud transport: AWS IoT Core MQTT + X.509 cert auth; no boto3 on device. Device-cloud wire format defined in ambientcloud/docs/device-cloud-contract.md v0.2 (2026-04-18). Rootfs must include: aws-iot-sdk-python-v2, pyarrow, requests, requests-aws4auth.
 
 Radar workload shape (as of this writing)
 Firmware option: potentially TI OOB demo / mmWave SDK / custom — still evaluating

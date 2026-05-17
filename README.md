@@ -28,16 +28,29 @@ subject data, no PII. Radar and sensor data handling live in other repos.
 
 The sensor application runs on top of this firmware. It lives in a separate repo:
 
-**[ambientintel/ambientapp](https://github.com/ambientintel/ambientapp)** — fall detection + activity service. Python 3.11 under systemd. Reads IWR6843AOP over UART, parses TLV frames, detects falls and presence events, publishes upstream.
+**[ambientintel/ambientapp](https://github.com/ambientintel/ambientapp)** — fall detection + activity service. Python 3.11 under systemd. Reads IWR6843AOP over UART, parses TLV frames, detects falls and presence events, publishes to AWS IoT Core.
 
-The app is not yet deployed to the board. Prerequisites before deployment:
+**Cloud transport:** AWS IoT Core MQTT + X.509 client cert auth. No boto3 and no AWS access keys on device — the X.509 cert issued by IoT Core is the device identity. Wire format defined in `ambientcloud/docs/device-cloud-contract.md` v0.2.
 
-1. IWR6843AOP UART driver working in the kernel (Step 16 in the bring-up sequence)
-2. Radar boot mode locked (Step 17)
-3. Python 3.11+ on the rootfs
-4. ambientapp changes complete — see that repo for current status
+**Rootfs dependencies the app adds:** `aws-iot-sdk-python-v2`, `pyarrow`, `requests`, `requests-aws4auth` (~55 MB total).
 
-Once prerequisites are met, install with `bash deploy/install.sh` from the ambientapp repo, then `systemctl start ambient`. Logs via `journalctl -u ambient -f`.
+**Credential layout (provisioned by `ambientcloud-admin provision-batch`):**
+```
+/etc/ambient/credentials/
+  certificate.pem   (device cert)
+  private.key       (private key, chmod 600)
+  config.json       (iotEndpoint, mqttTopics, uploadLambdaUrl, deviceId, mountConfig)
+```
+
+**Prerequisites before app deployment:**
+
+1. IWR6843AOP UART driver working in the kernel (bring-up Step 16)
+2. Radar boot mode locked (bring-up Step 17)
+3. Python 3.11+ on the rootfs with the above packages
+4. ambientapp events module complete (see that repo for status)
+5. Credentials provisioned via `ambientcloud-admin provision-batch` and scp'd to `/etc/ambient/credentials/`
+
+Once all prerequisites are met: `bash deploy/install.sh` → `systemctl start ambient` → `journalctl -u ambient -f`.
 
 ## Prerequisites
 
